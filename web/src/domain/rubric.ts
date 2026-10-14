@@ -33,7 +33,7 @@ export const SOLUTION: Criterion[] = [
   },
   {
     key: 'd2', code: 'D2', name: 'Works well', weight: '20%',
-    question: 'Does the app work and make sense to use?',
+    question: 'Does the app work live on AWS (with Amazon Bedrock) and make sense to use?',
     levels: {
       1: 'Did not work',
       2: 'Worked, but with problems',
@@ -101,7 +101,7 @@ export const DEMO: Criterion[] = [
       1: 'Failed or gave no result',
       2: 'Worked, but they only tried it once',
       3: 'Tried with different inputs, all good answers',
-      4: 'Also handled a tricky question well',
+      4: 'Also handled a tricky or unusual input well',
     },
   },
   {
@@ -111,7 +111,7 @@ export const DEMO: Criterion[] = [
       1: 'Not mentioned',
       2: 'Said it can grow, no reason given',
       3: 'Named who else would use it',
-      4: 'Clear plan to grow (cost, data, users)',
+      4: 'Clear plan to grow on AWS (cost, data, users)',
     },
   },
 ]
