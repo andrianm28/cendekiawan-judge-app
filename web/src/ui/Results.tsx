@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { applyOrder, EMPTY_DELIBERATION, lock, moveRank, type Deliberation, type FinalRank } from '../domain/deliberation'
 import { resultsCsv, scoresCsv } from '../domain/exportCsv'
 import { announcementOrder, proposeRanks, rankCategory } from '../domain/ranking'
-import { isComplete, type ScoreSheet } from '../domain/scoring'
+import { c1, c2, isComplete, type ScoreSheet } from '../domain/scoring'
 import { CATEGORIES, categoryOf, TEAMS } from '../domain/teams'
 import { JUDGES, type Judge } from '../judges'
 import type { ScoreRecord } from '../storage/scoreStore'
@@ -47,9 +47,15 @@ export function Results({ records, onBack, io = localDeliberation, judges = JUDG
   }
 
   const sheetsByTeam = new Map<string, ScoreSheet[]>()
+  const notesByTeam = new Map<string, string[]>()
   for (const r of records) {
     if (r.status !== 'submitted' || !isComplete(r.sheet)) continue
     sheetsByTeam.set(r.teamId, [...(sheetsByTeam.get(r.teamId) ?? []), r.sheet])
+    if (r.note.trim()) notesByTeam.set(r.teamId, [...(notesByTeam.get(r.teamId) ?? []), r.note.trim()])
+  }
+  const avg = (teamId: string, f: (s: ScoreSheet) => number) => {
+    const sheets = sheetsByTeam.get(teamId) ?? []
+    return Math.round((sheets.reduce((a, s) => a + f(s), 0) / sheets.length) * 10) / 10
   }
   const standings = CATEGORIES.map((c) => rankCategory(c.id, TEAMS, sheetsByTeam))
   const { ranks, stale } = applyOrder(proposeRanks(standings), delib)
@@ -77,6 +83,7 @@ export function Results({ records, onBack, io = localDeliberation, judges = JUDG
         <div className="bar-title"><strong>Deliberation</strong><span className="sub">Grand Final · 20 October 2026</span></div>
         <button className="link" onClick={exportScores}>Export scores</button>
         <button className="link" onClick={() => download('cendekiawan-results.csv', resultsCsv(ranks))}>Export results</button>
+        <button className="link" onClick={() => window.print()}>Print / PDF</button>
       </Header>
 
       {!allIn && <p className="banner">Not all scores are in. Rankings below are provisional.</p>}
@@ -156,8 +163,12 @@ export function Results({ records, onBack, io = localDeliberation, judges = JUDG
             <ol className="standing">
               {s.ranked.map((r) => (
                 <li key={r.team.id}>
-                  <span>{r.team.appName}</span>
-                  <span className="num">{r.final}</span>
+                  <div className="standing-row">
+                    <span>{r.team.appName}</span>
+                    <span className="num">{r.final}</span>
+                  </div>
+                  <div className="muted small">C1 {avg(r.team.id, c1)} · C2 {avg(r.team.id, c2)}</div>
+                  {notesByTeam.get(r.team.id)?.map((n, i) => <div key={i} className="small judge-note">“{n}”</div>)}
                 </li>
               ))}
               {s.missing.map((t) => (
@@ -175,7 +186,7 @@ export function Results({ records, onBack, io = localDeliberation, judges = JUDG
 
 function McSheet({ ranks, locked }: { ranks: FinalRank[]; locked: boolean }) {
   return (
-    <section className="card">
+    <section className="card mc-sheet">
       <h2>MC sheet (announcement order) {!locked && <span className="pill draft">not locked</span>}</h2>
       <ol className="mc">
         {announcementOrder(ranks).map((r) => (

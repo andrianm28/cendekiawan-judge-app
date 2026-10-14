@@ -127,8 +127,10 @@ th, td { text-align: left; padding: 10px 6px; border-top: 1px solid var(--border
 .num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 800; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
 .standing, .mc { margin: 0; padding-left: 20px; }
-.standing li { display: flex; justify-content: space-between; padding: 4px 0; }
-.standing li span:last-child { white-space: nowrap; margin-left: 8px; }
+.standing li { padding: 5px 0; }
+.standing-row, .standing li.muted { display: flex; justify-content: space-between; }
+.standing-row span:last-child, .standing li.muted span:last-child { white-space: nowrap; margin-left: 8px; }
+.judge-note { font-style: italic; }
 .mc li { padding: 5px 0; }
 .moves { white-space: nowrap; text-align: right; }
 .small-btn { min-width: 40px; min-height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--level-bg); margin-left: 4px; }
@@ -167,3 +169,34 @@ th, td { text-align: left; padding: 10px 6px; border-top: 1px solid var(--border
 .audit li { padding: 6px 0; border-top: 1px solid var(--border); }
 .audit time { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 8px; }
 .actions .reason { max-width: 688px; margin: 0 auto 8px; text-align: left; }
+
+/* Pitch timer */
+.timer { min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid rgb(255 255 255 / 0.3); background: transparent; color: #fff; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.timer.on { border-color: var(--green); }
+.timer.warn { background: var(--orange); color: var(--navy-900); border-color: var(--orange); }
+.timer.over { background: #c92a2a; border-color: #c92a2a; }
+
+/* Printable rubric card and paper backup sheets */
+.print-page { background: #fff; color: #000; padding: 16px; margin-bottom: 16px; border: 1px solid var(--border); border-radius: 8px; }
+.print-page h1 { font-size: 1.3rem; margin: 0 0 4px; }
+.print-page h2 { font-size: 1rem; margin: 12px 0 4px; }
+.print-page table { font-size: 0.8rem; }
+.print-page th, .print-page td { padding: 4px 5px; border: 1px solid #999; vertical-align: top; color: #000; }
+.print-page th { color: #333; }
+.print-brand { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.print-brand img { height: 26px; width: auto; }
+.circle-row { white-space: nowrap; letter-spacing: 0.5em; font-weight: 700; text-align: center; }
+.fill { height: 26px; }
+
+@media print {
+  :root { --bg: #fff; --surface: #fff; --text: #000; --muted: #444; --border: #bbb; --level-bg: #fff; }
+  body { background: #fff; }
+  .screen, .screen.wide { max-width: none; padding: 0; }
+  .header { position: static; box-shadow: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .header-row button, .moves, .reason, .no-print, button.primary { display: none !important; }
+  .card { break-inside: avoid; }
+  .mc-sheet { break-before: page; }
+  .print-page { border: 0; border-radius: 0; margin: 0; padding: 0; break-after: page; }
+  @page { size: A4; margin: 12mm; }
+}
+.print-link { display: block; margin: 8px auto 0; color: var(--muted); }

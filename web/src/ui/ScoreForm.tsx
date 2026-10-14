@@ -4,6 +4,7 @@ import { c1, c2, finalScore, isComplete, type Level, type PartialSheet } from '.
 import type { Team } from '../domain/teams'
 import type { ScoreRecord } from '../storage/scoreStore'
 import { Header } from './Header'
+import { Timer } from './Timer'
 
 const LEVELS: Level[] = [1, 2, 3, 4]
 
@@ -30,6 +31,7 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer }: Pr
           <strong>{team.appName}</strong>
           <span className="sub">{team.teamName} · {team.university}</span>
         </div>
+        <Timer />
         <div className="final" aria-live="polite">
           <span className="final-num">{complete ? finalScore(sheet) : '–'}</span>
           <span className="sub small">/100</span>

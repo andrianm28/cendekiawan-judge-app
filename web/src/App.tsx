@@ -5,6 +5,7 @@ import { Api, API_URL, type Session } from './sync/api'
 import { JudgeApp } from './ui/JudgeApp'
 import { Login } from './ui/Login'
 import { OperatorBoard } from './ui/OperatorBoard'
+import { PrintSheets } from './ui/PrintSheets'
 import { loadSession, saveSession } from './ui/session'
 import { Results } from './ui/Results'
 import { ScoreForm } from './ui/ScoreForm'
@@ -12,7 +13,7 @@ import { TeamList } from './ui/TeamList'
 import { Header } from './ui/Header'
 import { useScores } from './ui/useScores'
 
-type View = { kind: 'home' } | { kind: 'teams'; judge: Judge } | { kind: 'score'; judge: Judge; team: Team } | { kind: 'results' }
+type View = { kind: 'home' } | { kind: 'teams'; judge: Judge } | { kind: 'score'; judge: Judge; team: Team } | { kind: 'results' } | { kind: 'print' }
 
 export default function App() {
   return API_URL ? <OnlineApp base={API_URL} /> : <LocalApp />
@@ -61,6 +62,7 @@ function LocalApp() {
     )
   }
   if (view.kind === 'results') return <Results records={records} onBack={() => setView({ kind: 'home' })} />
+  if (view.kind === 'print') return <PrintSheets judges={JUDGES} onBack={() => setView({ kind: 'home' })} />
 
   return (
     <div className="screen">
@@ -92,6 +94,7 @@ function LocalApp() {
         })}
       </ul>
       <button className="primary" onClick={() => setView({ kind: 'results' })}>Deliberation</button>
+      <button className="link print-link" onClick={() => setView({ kind: 'print' })}>Print rubric card and backup sheets</button>
     </div>
   )
 }

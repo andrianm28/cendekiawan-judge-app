@@ -6,13 +6,14 @@ import type { Judge } from '../judges'
 import type { ScoreRecord } from '../storage/scoreStore'
 import type { Api, AuditEntry, ServerState } from '../sync/api'
 import { Header } from './Header'
+import { PrintSheets } from './PrintSheets'
 import { Results, type DeliberationIO } from './Results'
 import { ScoreForm } from './ScoreForm'
 
 const EVERY_MS = 5000
 const LIVE_MS = 30_000
 
-type View = { kind: 'board' } | { kind: 'correct'; judge: Judge; team: Team } | { kind: 'results' }
+type View = { kind: 'board' } | { kind: 'correct'; judge: Judge; team: Team } | { kind: 'results' } | { kind: 'print' }
 
 /** The operator's laptop: who is scoring, close groups, corrections with a reason, deliberation. */
 export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => void }) {
@@ -59,6 +60,7 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
   if (view.kind === 'results') {
     return <Results records={records} judges={state?.judges} io={io} onBack={() => setView({ kind: 'board' })} />
   }
+  if (view.kind === 'print') return <PrintSheets judges={state?.judges ?? []} onBack={() => setView({ kind: 'board' })} />
   if (view.kind === 'correct') {
     return (
       <Correction
@@ -76,6 +78,7 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
     <div className="screen wide">
       <Header>
         <div className="bar-title"><strong>Operator</strong><span className="sub">{submitted} of {TEAMS.length} scores submitted</span></div>
+        <button className="link" onClick={() => setView({ kind: 'print' })}>Print sheets</button>
         <button className="link" onClick={() => setView({ kind: 'results' })}>Deliberation ›</button>
         <button className="link" onClick={onLogout}>Log out</button>
       </Header>
