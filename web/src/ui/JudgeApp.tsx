@@ -94,6 +94,7 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
         record={records.find((r) => r.teamId === team.id && r.judgeId === judge.id)}
         locked={closed(team)}
         onStage={onStage}
+        judge={judge}
         timerStartedAt={started}
         onChange={(change) => void save(judge.id, team.id, change).then(() => round())}
         onBack={() => setTeam(null)}

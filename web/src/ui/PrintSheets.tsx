@@ -23,13 +23,13 @@ export function PrintSheets({ judges, order, onBack }: { judges: Judge[]; order?
 
       <section className="print-page">
         <Brand title="Judging rubric · Live demo" />
-        <p className="small">Score each criterion 1 Weak · 2 Acceptable · 3 Strong · 4 Exceptional. Solution (D1–D5) and Live Demo (V1–V4) are 50% each.</p>
+        <p className="small">Score each criterion 1 Poor · 2 Fair · 3 Good · 4 Excellent. Solution (D1–D5) and Live Demo (V1–V4) are 50% each.</p>
         <table>
           <thead><tr><th>Criterion</th>{([1, 2, 3, 4] as const).map((l) => <th key={l}>{l} {LEVEL_NAMES[l]}</th>)}</tr></thead>
           <tbody>
             {ALL.map((c) => (
               <tr key={c.key}>
-                <td><b>{c.code}</b> {c.name} ({c.weight})</td>
+                <td><b>{c.code}</b> {c.name} ({c.weight})<br /><span className="small">{c.question}</span></td>
                 {([1, 2, 3, 4] as const).map((l) => <td key={l}>{c.levels[l]}</td>)}
               </tr>
             ))}

@@ -16,6 +16,8 @@ export interface Session {
   token: string
   role: 'judge' | 'admin'
   judge?: Judge
+  /** The judge confirmed on this tablet that the name shown is theirs. */
+  confirmed?: boolean
 }
 
 export interface AuditEntry {
@@ -86,7 +88,7 @@ export class Api {
     this.call<ServerScore>('PUT', `/admin/scores/${judgeId}/${teamId}`, { ...r, reason })
   setGroupClosed = (group: number, closed: boolean) =>
     this.call<{ closedGroups: number[] }>('POST', `/admin/groups/${group}`, { closed })
-  renameJudge = (id: string, name: string) => this.call<Judge>('PUT', `/admin/judges/${id}`, { name })
+  updateJudge = (id: string, change: { name?: string; title?: string; group?: number; pin?: string }) => this.call<Judge>('PUT', `/admin/judges/${id}`, change)
   pickTieWinner = (category: CategoryId, teamId: string) => this.call<TieBreak>('PUT', `/ties/${category}`, { teamId })
   putRunOrder = (body: { order?: string[]; current?: string | null; timer?: 'start' | 'reset' }) =>
     this.call<RunOrder>('PUT', '/admin/runorder', body)

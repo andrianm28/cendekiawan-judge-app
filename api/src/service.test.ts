@@ -34,7 +34,7 @@ describe('login', () => {
     const { handler } = await setup()
     const j = await call(handler, 'POST', '/login', { pin: '2222' })
     expect(j.status).toBe(200)
-    expect(j.body.judge).toEqual({ id: 'g2', group: 2, name: 'Pak Kresna' })
+    expect(j.body.judge).toEqual({ id: 'g2', group: 2, name: 'Pak Kresna', title: '' })
     expect((await call(handler, 'POST', '/login', { pin: '999999' })).body.role).toBe('admin')
     expect((await call(handler, 'POST', '/login', { pin: '0000' })).status).toBe(401)
   })
@@ -195,18 +195,42 @@ describe('reset after a rehearsal', () => {
   })
 })
 
+describe('editing judges', () => {
+  it('sets name, title, category (swapping owners) and a new unique PIN', async () => {
+    const { handler } = await setup()
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    const g1 = (await call(handler, 'POST', '/login', { pin: '1111' })).body.token
+    expect((await call(handler, 'PUT', '/admin/judges/g1', { name: 'X' }, g1)).status).toBe(403)
+
+    const r = await call(handler, 'PUT', '/admin/judges/g1', { name: 'Dr. Aisyah', title: 'Dean, UM', group: 2, pin: '424242' }, admin)
+    expect(r.body).toEqual({ id: 'g1', group: 2, name: 'Dr. Aisyah', title: 'Dean, UM' })
+    const judges = (await call(handler, 'GET', '/state', undefined, admin)).body.judges
+    expect(judges.find((j: { id: string }) => j.id === 'g2').group).toBe(1)
+
+    expect((await call(handler, 'POST', '/login', { pin: '1111' })).status).toBe(401)
+    expect((await call(handler, 'POST', '/login', { pin: '424242' })).body.judge.name).toBe('Dr. Aisyah')
+
+    expect((await call(handler, 'PUT', '/admin/judges/g2', { pin: '424242' }, admin)).body.code).toBe('pin_taken')
+    expect((await call(handler, 'PUT', '/admin/judges/g2', { pin: '999999' }, admin)).body.code).toBe('pin_taken')
+    expect((await call(handler, 'PUT', '/admin/judges/g2', { pin: '12' }, admin)).body.code).toBe('bad_pin')
+    const audit = (await call(handler, 'GET', '/admin/audit', undefined, admin)).body
+    expect(JSON.stringify(audit)).not.toContain('424242')
+    expect(audit[0].detail).toMatchObject({ pinChanged: true, fromGroup: 1, toGroup: 2, swappedWith: 'g2' })
+  })
+})
+
 describe('admin', () => {
   it('renames a judge and refuses deliberation changes after lock', async () => {
     const { handler } = await setup()
     const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
-    expect((await call(handler, 'PUT', '/admin/judges/g2', { name: 'Dr. Example' }, admin)).body.name).toBe('Dr. Example')
+    expect((await call(handler, 'PUT', '/admin/judges/g2', { name: 'Dr. Example', title: 'Head of Cloud, AWS' }, admin)).body.title).toBe('Head of Cloud, AWS')
     const d = { order: ['t17'], log: [{ at: 'x', teamId: 't17', from: 2, to: 1, reason: 'demo' }], lockedAt: null }
     expect((await call(handler, 'PUT', '/admin/deliberation', d, admin)).status).toBe(200)
     expect((await call(handler, 'PUT', '/admin/deliberation', { ...d, lockedAt: 'now' }, admin)).status).toBe(200)
     expect((await call(handler, 'PUT', '/admin/deliberation', d, admin)).status).toBe(423)
     const state = (await call(handler, 'GET', '/state', undefined, admin)).body
     expect(state.deliberation.lockedAt).toBe('now')
-    expect(state.judges.find((j: { id: string }) => j.id === 'g2')).toEqual({ id: 'g2', group: 2, name: 'Dr. Example' })
+    expect(state.judges.find((j: { id: string }) => j.id === 'g2')).toEqual({ id: 'g2', group: 2, name: 'Dr. Example', title: 'Head of Cloud, AWS' })
     expect(JSON.stringify(state)).not.toContain('pinHash')
   })
 

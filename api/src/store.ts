@@ -20,6 +20,7 @@ export interface JudgeAccount {
   id: string
   group: number
   name: string
+  title?: string
   pinHash: string
 }
 

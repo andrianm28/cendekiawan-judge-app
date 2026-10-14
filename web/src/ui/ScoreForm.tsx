@@ -3,7 +3,9 @@ import { DEMO, LEVEL_NAMES, SOLUTION, type Criterion } from '../domain/rubric'
 import { c1, c2, finalScore, isComplete, type Level, type PartialSheet } from '../domain/scoring'
 import { categoryOf, type Team } from '../domain/teams'
 import type { ScoreRecord } from '../storage/scoreStore'
+import type { Judge } from '../judges'
 import { Header } from './Header'
+import { JudgeBadge } from './JudgeBadge'
 import { Timer } from './Timer'
 
 const LEVELS: Level[] = [1, 2, 3, 4]
@@ -20,9 +22,11 @@ interface Props {
   timerStartedAt?: number | null
   /** This team is on stage now. */
   onStage?: boolean
+  /** Who is scoring on this tablet; shown so tablets are not swapped. */
+  judge?: Judge
 }
 
-export function ScoreForm({ team, record, locked, onChange, onBack, footer, timerStartedAt, onStage }: Props) {
+export function ScoreForm({ team, record, locked, onChange, onBack, footer, timerStartedAt, onStage, judge }: Props) {
   const sheet = record?.sheet ?? {}
   const complete = isComplete(sheet)
   const submitted = record?.status === 'submitted'
@@ -42,6 +46,7 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer, time
         </div>
       </Header>
 
+      {judge && <JudgeBadge judge={judge} compact />}
       {locked && <p className="banner">This category is closed. Ask the operator to change a score.</p>}
 
       <Section title="Solution" subtitle={complete ? `C1 ${c1(sheet)}` : '50%'}
@@ -104,6 +109,7 @@ function CriterionRow({ c, value, disabled, onPick }: {
     <div className="crit">
       <div className="crit-head">
         <span><b>{c.code}</b> {c.name} <span className="muted small">{c.weight}</span></span>
+        <span className="crit-question">{c.question}</span>
       </div>
       <div className="levels" role="radiogroup" aria-label={c.name}>
         {LEVELS.map((l) => (

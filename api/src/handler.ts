@@ -6,7 +6,7 @@
 //   PUT  /ties/{category}               judge who owns the category (or operator) picks a tied winner { teamId }
 //   PUT  /admin/scores/{judgeId}/{teamId}  operator correction { sheet, note, status, reason }
 //   POST /admin/groups/{group}          { closed: boolean }
-//   PUT  /admin/judges/{judgeId}        { name }
+//   PUT  /admin/judges/{judgeId}        { name?, title?, group?, pin? } (group swaps with its owner)
 //   PUT  /admin/deliberation            Deliberation
 //   PUT  /admin/runorder                { order?, current?, timer?: 'start' | 'reset' }
 //   POST /admin/reset                   { confirm: 'RESET' } wipes event data, keeps judges and PINs
@@ -50,7 +50,7 @@ export function makeHandler(service: JudgingService, secret: string) {
         case 'POST /admin/groups/:':
           return reply(200, await service.setGroupClosed(session, Number(parts[2]), body.closed === true))
         case 'PUT /admin/judges/:':
-          return reply(200, await service.renameJudge(session, parts[2], String(body.name ?? '')))
+          return reply(200, await service.updateJudge(session, parts[2], body))
         case 'PUT /admin/deliberation':
           return reply(200, await service.putDeliberation(session, body))
         case 'GET /admin/audit':
