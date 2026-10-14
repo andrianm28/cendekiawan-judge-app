@@ -15,11 +15,11 @@ Parameters:
   CustomDomain:
     Type: String
     Default: ''
-    Description: Optional domain for the web app, e.g. cendekiawan-judge.eliteacademy.id
+    Description: Optional domain for the web app, e.g. panel.cendekiawan.eliteacademy.id
   CertificateArn:
     Type: String
     Default: ''
-    Description: ACM certificate in us-east-1 covering CustomDomain
+    Description: ACM certificate in us-east-1 covering CustomDomain (the *.cendekiawan.eliteacademy.id wildcard)
 
 Conditions:
   HasCustomDomain: !Not [!Equals [!Ref CustomDomain, '']]
