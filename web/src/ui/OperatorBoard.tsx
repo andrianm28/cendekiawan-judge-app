@@ -126,6 +126,7 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
     <div className="screen wide">
       <Header>
         <div className="bar-title"><strong>Operator</strong><span className="sub">{submitted} of {expected} score sheets submitted</span></div>
+        <button className="link" onClick={() => window.open('/?screen=stage', 'cendekiawan-stage', 'popup,width=1280,height=720')}>Stage screen ↗</button>
         <button className="link" onClick={() => setView({ kind: 'leaderboard' })}>Leaderboard</button>
         <button className="link" onClick={() => setView({ kind: 'results' })}>Deliberation ›</button>
         <button className="link" onClick={() => setView({ kind: 'print' })}>Print sheets</button>
@@ -154,7 +155,7 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
                 {!run.current ? 'Start with first team ›' : run.order.indexOf(run.current) === run.order.length - 1 ? 'Finish ›' : 'Next team ›'}
               </button>
             </div>
-            <p className="muted small">Judges' tablets open the team on stage and show this timer. Judges only score.</p>
+            <p className="muted small">Judges' tablets open the team on stage and show this timer. Judges only score. <strong>Stage screen ↗</strong> opens the projector view (team, timer, up next; no scores): drag it to the projector and double-click for full screen.</p>
             <details className="run-order">
               <summary>Running order</summary>
               <ol>

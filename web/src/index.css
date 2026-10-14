@@ -304,3 +304,27 @@ span.timer { display: inline-flex; align-items: center; }
 .form-grid input, .form-grid select { font-size: 1.05rem; padding: 10px 12px; border-radius: 8px; border: 1px solid #c5cbd6; }
 .form-grid .warn { color: #c2410c; }
 .editor-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* Projector screen for the audience: team on stage and timer, no scores. */
+.stage-screen { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--navy-900, #0b1430); color: #fff; overflow: hidden; cursor: default; }
+.stage-bg { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0.28; }
+.stage-screen::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgb(8 14 36 / 0.55), rgb(8 14 36 / 0.9)); pointer-events: none; }
+.stage-screen > * { position: relative; z-index: 1; }
+.stage-top { display: flex; align-items: center; gap: 2vw; padding: 3vh 4vw; border-bottom: 1px solid rgb(255 255 255 / 0.15); }
+.stage-logo { height: 6vh; }
+.stage-event { flex: 1; font-size: 2.2vh; letter-spacing: 0.04em; opacity: 0.85; }
+.stage-partners { display: flex; gap: 2vw; align-items: center; }
+.stage-partners img { height: 4vh; }
+.stage-main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 2vh; padding: 0 5vw; }
+.stage-eyebrow { font-size: 2.6vh; text-transform: uppercase; letter-spacing: 0.18em; color: var(--orange, #ff9900); font-weight: 700; }
+.stage-category { font-size: 2.6vh; padding: 0.6vh 1.6vw; border-radius: 999px; border: 1px solid rgb(255 255 255 / 0.4); }
+.stage-app { margin: 0; font-size: 9vh; line-height: 1.05; font-weight: 800; }
+.stage-team-line { margin: 0; font-size: 3.4vh; opacity: 0.9; }
+.stage-clock { display: flex; flex-direction: column; align-items: center; gap: 1vh; margin-top: 3vh; }
+.stage-clock .timer { font-size: 16vh; min-height: 0; padding: 1vh 4vw; border-width: 3px; border-radius: 3vh; line-height: 1.1; opacity: 1; }
+.stage-clock .timer.warn { color: var(--navy-900, #0b1430); }
+.stage-clock-label { font-size: 2.2vh; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.12em; }
+.stage-main.idle .stage-app { font-size: 12vh; }
+.stage-bottom { display: flex; justify-content: space-between; align-items: center; padding: 2.5vh 4vw; font-size: 2.8vh; border-top: 1px solid rgb(255 255 255 / 0.15); background: rgb(0 0 0 / 0.25); min-height: 4vh; }
+.stage-next-label { color: var(--orange, #ff9900); font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-right: 1vw; }
+.stage-offline { opacity: 0.6; font-size: 2vh; }
