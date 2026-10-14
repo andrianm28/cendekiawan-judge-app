@@ -2,6 +2,9 @@
 // (one tablet, IndexedDB only), which is also the fallback plan for the event.
 
 import type { Deliberation } from '../domain/deliberation'
+import type { RunOrder } from '../domain/runOrder'
+import type { CategoryId } from '../domain/teams'
+import type { TieBreak, TieBreaks, TieSummary } from '../domain/ties'
 import type { Judge } from '../judges'
 import type { ScoreRecord } from '../storage/scoreStore'
 
@@ -26,6 +29,11 @@ export interface ServerState {
   judges: Judge[]
   closedGroups: number[]
   scores: ServerScore[]
+  runOrder: RunOrder
+  serverTime: string
+  /** Ties at the top of a fully scored category; a judge only gets their own category's. */
+  ties: TieSummary[]
+  tieBreaks?: TieBreaks
   presence?: Record<string, string>
   deliberation?: Deliberation | null
 }
@@ -77,6 +85,9 @@ export class Api {
   setGroupClosed = (group: number, closed: boolean) =>
     this.call<{ closedGroups: number[] }>('POST', `/admin/groups/${group}`, { closed })
   renameJudge = (id: string, name: string) => this.call<Judge>('PUT', `/admin/judges/${id}`, { name })
+  pickTieWinner = (category: CategoryId, teamId: string) => this.call<TieBreak>('PUT', `/ties/${category}`, { teamId })
+  putRunOrder = (body: { order?: string[]; current?: string | null; timer?: 'start' | 'reset' }) =>
+    this.call<RunOrder>('PUT', '/admin/runorder', body)
   putDeliberation = (d: Deliberation) => this.call<Deliberation>('PUT', '/admin/deliberation', d)
   audit = () => this.call<AuditEntry[]>('GET', '/admin/audit')
 }

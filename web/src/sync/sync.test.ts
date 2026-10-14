@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto'
+import { DEFAULT_RUN_ORDER } from '../domain/runOrder'
 import { describe, expect, it } from 'vitest'
 import { ScoreStore } from '../storage/scoreStore'
 import { ApiError, type Api, type ServerScore, type ServerState } from './api'
@@ -24,7 +25,8 @@ function fakeServer() {
     },
     async state(): Promise<ServerState> {
       if (!up) throw new TypeError('Failed to fetch')
-      return { judges: [{ id: 'g1', group: 1, name: 'Mba Yashinta' }], closedGroups: [...closed], scores: [...scores.values()] }
+      return { judges: [{ id: 'g1', group: 1, name: 'Mba Yashinta' }], closedGroups: [...closed], scores: [...scores.values()],
+        runOrder: DEFAULT_RUN_ORDER, serverTime: new Date().toISOString(), ties: [] }
     },
   }
   return { api: api as unknown as Api, scores, closed, setUp: (v: boolean) => (up = v) }

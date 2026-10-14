@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import { CATEGORIES, type Team } from './domain/teams'
+import { CATEGORIES, TEAMS, type Team } from './domain/teams'
 import { JUDGES, type Judge } from './judges'
 import { Api, API_URL, type Session } from './sync/api'
 import { JudgeApp } from './ui/JudgeApp'
+import { Leaderboard } from './ui/Leaderboard'
 import { Login } from './ui/Login'
 import { OperatorBoard } from './ui/OperatorBoard'
 import { PrintSheets } from './ui/PrintSheets'
@@ -13,7 +14,7 @@ import { TeamList } from './ui/TeamList'
 import { Header } from './ui/Header'
 import { useScores } from './ui/useScores'
 
-type View = { kind: 'home' } | { kind: 'teams'; judge: Judge } | { kind: 'score'; judge: Judge; team: Team } | { kind: 'results' } | { kind: 'print' }
+type View = { kind: 'home' } | { kind: 'teams'; judge: Judge } | { kind: 'score'; judge: Judge; team: Team } | { kind: 'results' } | { kind: 'print' } | { kind: 'leaderboard' }
 
 export default function App() {
   return API_URL ? <OnlineApp base={API_URL} /> : <LocalApp />
@@ -42,7 +43,7 @@ function LocalApp() {
     return (
       <TeamList
         judge={view.judge}
-        category={CATEGORIES[view.judge.group - 1].id}
+        teams={TEAMS}
         records={records}
         onOpen={(team) => setView({ kind: 'score', judge: view.judge, team })}
         onLogout={() => setView({ kind: 'home' })}
@@ -62,6 +63,7 @@ function LocalApp() {
     )
   }
   if (view.kind === 'results') return <Results records={records} onBack={() => setView({ kind: 'home' })} />
+  if (view.kind === 'leaderboard') return <Leaderboard records={records} judges={JUDGES.length} onBack={() => setView({ kind: 'home' })} />
   if (view.kind === 'print') return <PrintSheets judges={JUDGES} onBack={() => setView({ kind: 'home' })} />
 
   return (
@@ -75,7 +77,7 @@ function LocalApp() {
           </div>
         }
       />
-      <h2 className="section-title">Choose your group</h2>
+      <h2 className="section-title">Who is scoring?</h2>
       <ul className="groups">
         {JUDGES.map((j) => {
           const cat = CATEGORIES[j.group - 1]
@@ -94,6 +96,7 @@ function LocalApp() {
         })}
       </ul>
       <button className="primary" onClick={() => setView({ kind: 'results' })}>Deliberation</button>
+      <button className="link print-link" onClick={() => setView({ kind: 'leaderboard' })}>Live leaderboard</button>
       <button className="link print-link" onClick={() => setView({ kind: 'print' })}>Print rubric card and backup sheets</button>
     </div>
   )

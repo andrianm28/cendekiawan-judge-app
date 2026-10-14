@@ -3,10 +3,12 @@
 //   POST /login                         { pin } → { token, role, judge? }
 //   GET  /state                         judge: own sheets; admin: everything
 //   PUT  /scores/{teamId}               judge saves a sheet { sheet, note, status, version }
+//   PUT  /ties/{category}               judge who owns the category (or operator) picks a tied winner { teamId }
 //   PUT  /admin/scores/{judgeId}/{teamId}  operator correction { sheet, note, status, reason }
 //   POST /admin/groups/{group}          { closed: boolean }
 //   PUT  /admin/judges/{judgeId}        { name }
 //   PUT  /admin/deliberation            Deliberation
+//   PUT  /admin/runorder                { order?, current?, timer?: 'start' | 'reset' }
 //   GET  /admin/audit
 
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda'
@@ -14,7 +16,7 @@ import { verifyToken, type Session } from './auth'
 import { dynamoStore } from './dynamoStore'
 import { ApiError, JudgingService } from './service'
 
-const ROUTE_WORDS = ['state', 'scores', 'admin', 'groups', 'judges', 'deliberation', 'audit']
+const ROUTE_WORDS = ['state', 'scores', 'admin', 'groups', 'judges', 'deliberation', 'audit', 'ties', 'runorder']
 
 type Event = Pick<APIGatewayProxyEventV2, 'requestContext' | 'headers' | 'body' | 'rawPath'> & {
   requestContext: { http: { method: string } }
@@ -36,6 +38,10 @@ export function makeHandler(service: JudgingService, secret: string) {
           return reply(200, await service.state(session))
         case 'PUT /scores/:':
           return reply(200, await service.saveScore(session, parts[1], body))
+        case 'PUT /ties/:':
+          return reply(200, await service.pickTieWinner(session, parts[1], String(body.teamId ?? '')))
+        case 'PUT /admin/runorder':
+          return reply(200, await service.putRunOrder(session, body))
         case 'PUT /admin/scores/:/:':
           return reply(200, await service.correctScore(session, parts[2], parts[3], body, String(body.reason ?? '')))
         case 'POST /admin/groups/:':

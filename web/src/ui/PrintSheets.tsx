@@ -1,5 +1,5 @@
 import { DEMO, LEVEL_NAMES, SOLUTION } from '../domain/rubric'
-import { CATEGORIES, teamsIn } from '../domain/teams'
+import { CATEGORIES, categoryOf, TEAMS } from '../domain/teams'
 import type { Judge } from '../judges'
 import { Header } from './Header'
 
@@ -7,15 +7,16 @@ const ALL = [...SOLUTION, ...DEMO]
 
 /**
  * Paper backup for the day: a one-page rubric card for the judges' brief, and one
- * score sheet per group with the same rubric and formula, in case the tablets fail.
+ * score sheet per judge (all teams, running order) in case the tablets fail.
  */
-export function PrintSheets({ judges, onBack }: { judges: Judge[]; onBack: () => void }) {
+export function PrintSheets({ judges, order, onBack }: { judges: Judge[]; order?: string[]; onBack: () => void }) {
+  const teams = order ? order.map((id) => TEAMS.find((t) => t.id === id)!).filter(Boolean) : TEAMS
   return (
     <div className="screen wide">
       <div className="no-print">
       <Header>
         <button className="link" onClick={onBack}>‹ Back</button>
-        <div className="bar-title"><strong>Print sheets</strong><span className="sub">Rubric card + 5 backup score sheets (A4)</span></div>
+        <div className="bar-title"><strong>Print sheets</strong><span className="sub">Rubric card + one backup score sheet per judge (A4)</span></div>
         <button className="link" onClick={() => window.print()}>Print / PDF</button>
       </Header>
       </div>
@@ -37,33 +38,36 @@ export function PrintSheets({ judges, onBack }: { judges: Judge[]; onBack: () =>
         <Formula />
       </section>
 
-      {CATEGORIES.map((cat) => {
-        const judge = judges.find((j) => j.group === cat.group)
-        const teams = teamsIn(cat.id)
-        return (
-          <section className="print-page" key={cat.id}>
-            <Brand title={`Backup score sheet · Group ${cat.group}: ${cat.name}`} />
-            <p className="small">Judge: <b>{judge?.name ?? '________________'}</b> · Circle one level per criterion. The operator enters these into the app.</p>
-            <table>
-              <thead>
-                <tr><th>Criterion</th>{teams.map((t) => <th key={t.id}>{t.order}. {t.appName}<br /><span className="small">{t.university}</span></th>)}</tr>
-              </thead>
-              <tbody>
-                {ALL.map((c) => (
-                  <tr key={c.key}>
-                    <td><b>{c.code}</b> {c.name} ({c.weight})</td>
-                    {teams.map((t) => <td key={t.id} className="circle-row">1 2 3 4</td>)}
-                  </tr>
-                ))}
-                <tr><td><b>Final</b> (operator)</td>{teams.map((t) => <td key={t.id} className="fill" />)}</tr>
-                <tr><td>Note</td>{teams.map((t) => <td key={t.id} className="fill" />)}</tr>
-              </tbody>
-            </table>
-            <Formula />
-            <p className="small">Signature: ____________________ &nbsp; Time: ________</p>
-          </section>
-        )
-      })}
+      {judges.map((judge) => (
+        <section className="print-page" key={judge.id}>
+          <Brand title={`Backup score sheet · ${judge.name}`} />
+          <p className="small">
+            Write one level (1–4) per criterion for each team, in the running order. The operator enters these into the app.
+            You own <b>{CATEGORIES.find((c) => c.group === judge.group)?.name}</b>: if its top teams end equal, you choose the winner.
+          </p>
+          <table className="backup">
+            <thead>
+              <tr>
+                <th>#</th><th>Team</th>
+                {ALL.map((c) => <th key={c.key} className="crit-col">{c.code}</th>)}
+                <th>Final</th>
+              </tr>
+            </thead>
+            <tbody>
+              {teams.map((t, i) => (
+                <tr key={t.id}>
+                  <td>{i + 1}</td>
+                  <td><b>{t.appName}</b> <span className="small">{t.university} · {categoryOf(t.category).name}</span></td>
+                  {ALL.map((c) => <td key={c.key} className="box" />)}
+                  <td className="box" />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <Formula />
+          <p className="small">Signature: ____________________ &nbsp; Time: ________</p>
+        </section>
+      ))}
     </div>
   )
 }
@@ -84,7 +88,7 @@ function Formula() {
   return (
     <p className="small">
       C1 = (D1+D2+D3+D4+D5) / 20 × 100 · C2 = (0.35 V1 + 0.25 V2 + 0.20 V3 + 0.20 V4) / 4 × 100 ·
-      Final = ½ C1 + ½ C2, rounded half up (69.5 → 70). Ties: higher D1, then D4, then the judges decide.
+      Final = ½ C1 + ½ C2, rounded half up (69.5 → 70). Each team's final is the average of all judges. A tie at the top of a category is decided by that category's judge.
     </p>
   )
 }

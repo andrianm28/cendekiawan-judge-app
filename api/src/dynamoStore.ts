@@ -1,10 +1,12 @@
-// DynamoDB single-table store. Every item is tiny and the whole event is ~20 score
+// DynamoDB single-table store. Every item is tiny and the whole event is ~100 score
 // sheets, so each list is one Query on its partition.
 
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
 import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb'
 import { randomUUID } from 'node:crypto'
 import type { Deliberation } from '../../web/src/domain/deliberation'
+import type { RunOrder } from '../../web/src/domain/runOrder'
+import type { TieBreak } from '../../web/src/domain/ties'
 import type { AuditEntry, JudgeAccount, Store, StoredScore } from './store'
 
 export function dynamoStore(table: string, client = DynamoDBDocumentClient.from(new DynamoDBClient({}))): Store {
@@ -40,6 +42,10 @@ export function dynamoStore(table: string, client = DynamoDBDocumentClient.from(
     setGroupClosed: (group, closed) => put('GROUP', String(group), { group, closed }),
     getDeliberation: () => get<Deliberation>('META', 'deliberation'),
     putDeliberation: (d) => put('META', 'deliberation', d),
+    getRunOrder: () => get<RunOrder>('META', 'runorder'),
+    putRunOrder: (r) => put('META', 'runorder', r),
+    getTieBreaks: async () => Object.fromEntries((await query<TieBreak & { category: string }>('TIE')).map(({ category, ...p }) => [category, p])),
+    putTieBreak: (category, p) => put('TIE', category, { ...p, category }),
     touchPresence: (j, at) => put('PRESENCE', j, { judgeId: j, at }),
     getPresence: async () => Object.fromEntries((await query<{ judgeId: string; at: string }>('PRESENCE')).map((p) => [p.judgeId, p.at])),
     appendAudit: (e: AuditEntry) => put('AUDIT', `${e.at}#${randomUUID()}`, e),

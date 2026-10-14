@@ -4,6 +4,7 @@
 import { openDB, type IDBPDatabase } from 'idb'
 import { EMPTY_DELIBERATION, type Deliberation } from '../domain/deliberation'
 import type { PartialSheet } from '../domain/scoring'
+import type { TieBreaks } from '../domain/ties'
 
 export type ScoreStatus = 'draft' | 'submitted'
 
@@ -105,6 +106,14 @@ export class ScoreStore {
 
   async saveDeliberation(d: Deliberation): Promise<void> {
     await this.db.put(META, d, 'deliberation')
+  }
+
+  async getTieBreaks(): Promise<TieBreaks> {
+    return (await this.db.get(META, 'tiebreaks')) ?? {}
+  }
+
+  async saveTieBreaks(t: TieBreaks): Promise<void> {
+    await this.db.put(META, t, 'tiebreaks')
   }
 
   close(): void {

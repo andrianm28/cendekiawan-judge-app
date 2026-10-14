@@ -3,7 +3,9 @@
 
 import type { Deliberation } from '../../web/src/domain/deliberation'
 import { CRITERIA, isComplete, type PartialSheet } from '../../web/src/domain/scoring'
-import { categoryOf, TEAMS } from '../../web/src/domain/teams'
+import { normalizeRunOrder, type RunOrder } from '../../web/src/domain/runOrder'
+import { CATEGORIES, categoryOf, TEAMS, type CategoryId } from '../../web/src/domain/teams'
+import { categoryTies } from '../../web/src/domain/ties'
 import { signToken, verifyPin, type Session } from './auth'
 import type { Store, StoredScore } from './store'
 
@@ -60,26 +62,38 @@ export class JudgingService {
     throw new ApiError(401, 'bad_pin', 'Wrong PIN')
   }
 
-  /** Everything a screen needs in one call: judges get their own sheets, the admin gets all. */
+  /**
+   * Everything a screen needs in one call. Judges get their own sheets, the running
+   * order, and any tie in the category they own (averages only, not other judges'
+   * sheets); the admin gets everything.
+   */
   async state(s: Session) {
-    const [judges, closedGroups, scores] = await Promise.all([
+    const [judges, closedGroups, scores, runOrder, picks] = await Promise.all([
       this.store.getJudges(),
       this.store.getClosedGroups(),
       this.store.listScores(),
+      this.store.getRunOrder(),
+      this.store.getTieBreaks(),
     ])
     const publicJudges = judges.map(({ id, group, name }) => ({ id, group, name }))
+    const ties = categoryTies(scores, judges.length, picks)
+    const common = { closedGroups, runOrder: normalizeRunOrder(runOrder), serverTime: this.now().toISOString() }
     if (s.role === 'judge') {
       await this.store.touchPresence(s.sub, this.now().toISOString())
+      const me = publicJudges.find((j) => j.id === s.sub)
       return {
+        ...common,
         judges: publicJudges.filter((j) => j.id === s.sub),
-        closedGroups,
         scores: scores.filter((x) => x.judgeId === s.sub),
+        ties: ties.filter((t) => categoryOf(t.category).group === me?.group),
       }
     }
     return {
+      ...common,
       judges: publicJudges,
-      closedGroups,
       scores,
+      ties,
+      tieBreaks: picks,
       presence: await this.store.getPresence(),
       deliberation: (await this.store.getDeliberation()) ?? null,
     }
@@ -87,13 +101,13 @@ export class JudgingService {
 
   async saveScore(s: Session, teamId: string, input: ScoreInput): Promise<StoredScore> {
     if (s.role !== 'judge') throw new ApiError(403, 'forbidden', 'Only judges submit scores; use a correction')
+    // Every judge scores every team (ADR 0003).
     const judge = (await this.store.getJudges()).find((j) => j.id === s.sub)
     const team = TEAMS.find((t) => t.id === teamId)
     if (!judge || !team) throw new ApiError(404, 'not_found', 'Unknown judge or team')
-    if (categoryOf(team.category).group !== judge.group) throw new ApiError(403, 'forbidden', 'Team is not in your group')
     validate(input)
-    if ((await this.store.getClosedGroups()).includes(judge.group)) {
-      throw new ApiError(423, 'group_closed', 'This group is closed. Ask the operator to change a score.')
+    if ((await this.store.getClosedGroups()).includes(categoryOf(team.category).group)) {
+      throw new ApiError(423, 'group_closed', 'This category is closed. Ask the operator to change a score.')
     }
     const prev = await this.store.getScore(judge.id, teamId)
     if (prev && input.version <= prev.version) {
@@ -160,13 +174,49 @@ export class JudgingService {
     return d
   }
 
+  /**
+   * The operator sets the running order, the team on stage and the pitch timer.
+   * `timer: 'start'` stamps the server time, so every tablet counts from the same moment.
+   */
+  async putRunOrder(s: Session, body: { order?: string[]; current?: string | null; timer?: 'start' | 'reset' }) {
+    requireAdmin(s)
+    const prev = normalizeRunOrder(await this.store.getRunOrder())
+    const next: RunOrder = normalizeRunOrder({ order: body.order ?? prev.order, current: body.current === undefined ? prev.current : body.current })
+    next.startedAt = next.current !== prev.current ? null : prev.startedAt
+    if (body.timer === 'start' && next.current) next.startedAt = this.now().toISOString()
+    if (body.timer === 'reset') next.startedAt = null
+    await this.store.putRunOrder(next)
+    if (next.order.join() !== prev.order.join()) await this.audit('set_order', { order: next.order })
+    if (next.current !== prev.current) await this.audit('now_presenting', { teamId: next.current })
+    if (next.startedAt && next.startedAt !== prev.startedAt) await this.audit('start_timer', { teamId: next.current })
+    return next
+  }
+
+  /** The judge who owns a category (or the operator) picks the winner of a tie at its top. */
+  async pickTieWinner(s: Session, category: string, teamId: string) {
+    const cat = CATEGORIES.find((c) => c.id === category)
+    if (!cat) throw new ApiError(404, 'not_found', 'Unknown category')
+    const judges = await this.store.getJudges()
+    if (s.role === 'judge' && judges.find((j) => j.id === s.sub)?.group !== cat.group) {
+      throw new ApiError(403, 'forbidden', 'Only the judge who owns this category can break its tie')
+    }
+    if ((await this.store.getDeliberation())?.lockedAt) throw new ApiError(423, 'locked', 'The result is locked')
+    const tie = categoryTies(await this.store.listScores(), judges.length, {}).find((t) => t.category === category)
+    if (!tie) throw new ApiError(409, 'no_tie', 'There is no tie to break in this category (or scoring is not complete)')
+    if (!tie.tied.some((t) => t.teamId === teamId)) throw new ApiError(400, 'not_tied', 'That team is not one of the tied teams')
+    const pick = { teamId, by: s.role === 'admin' ? 'admin' : s.sub, at: this.now().toISOString() }
+    await this.store.putTieBreak(category as CategoryId, pick)
+    await this.audit('tie_pick', { category, teamId, tied: tie.tied.map((t) => t.teamId) }, pick.by)
+    return pick
+  }
+
   async listAudit(s: Session) {
     requireAdmin(s)
     return this.store.listAudit()
   }
 
-  private audit(action: string, detail: Record<string, unknown>) {
-    return this.store.appendAudit({ at: this.now().toISOString(), actor: 'admin', action, detail })
+  private audit(action: string, detail: Record<string, unknown>, actor = 'admin') {
+    return this.store.appendAudit({ at: this.now().toISOString(), actor, action, detail })
   }
 }
 
