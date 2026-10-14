@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { DEMO, LEVEL_NAMES, SOLUTION, type Criterion } from '../domain/rubric'
 import { c1, c2, finalScore, isComplete, type Level, type PartialSheet } from '../domain/scoring'
 import { categoryOf, type Team } from '../domain/teams'
@@ -93,19 +93,18 @@ function Section(props: {
   )
 }
 
+/** One criterion: every level shows its descriptor, so the rubric is always in front of the judge. */
 function CriterionRow({ c, value, disabled, onPick }: {
   c: Criterion
   value: Level | undefined
   disabled: boolean
   onPick: (key: Criterion['key'], level: Level) => void
 }) {
-  const [open, setOpen] = useState(false)
   return (
     <div className="crit">
-      <button className="crit-head link" onClick={() => setOpen(!open)} aria-expanded={open}>
+      <div className="crit-head">
         <span><b>{c.code}</b> {c.name} <span className="muted small">{c.weight}</span></span>
-        <span className="muted small">{open ? 'hide' : 'guide'}</span>
-      </button>
+      </div>
       <div className="levels" role="radiogroup" aria-label={c.name}>
         {LEVELS.map((l) => (
           <button
@@ -116,18 +115,11 @@ function CriterionRow({ c, value, disabled, onPick }: {
             disabled={disabled}
             onClick={() => onPick(c.key, l)}
           >
-            <span className="level-num">{l}</span>
-            <span className="level-name">{LEVEL_NAMES[l]}</span>
+            <span className="level-num">{l} <span className="level-name">{LEVEL_NAMES[l]}</span></span>
+            <span className="level-desc">{c.levels[l]}</span>
           </button>
         ))}
       </div>
-      {open && (
-        <ol className="guide">
-          {LEVELS.map((l) => (
-            <li key={l} className={value === l ? 'on' : ''}><b>{l}</b> {c.levels[l]}</li>
-          ))}
-        </ol>
-      )}
     </div>
   )
 }

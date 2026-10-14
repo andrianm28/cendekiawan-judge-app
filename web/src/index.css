@@ -276,3 +276,10 @@ span.timer { display: inline-flex; align-items: center; }
 .reset-row { justify-content: flex-start; flex-wrap: wrap; }
 .reset-row input { max-width: 200px; }
 .reset-row .danger:not(:disabled) { background: #c92a2a; border-color: #c92a2a; color: #fff; }
+
+/* Rubric descriptors always visible inside each level */
+.level { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 4px; padding: 8px 10px; text-align: left; }
+.level-num .level-name { font-size: 0.8rem; font-weight: 700; margin-left: 4px; }
+.level-desc { font-size: 0.78rem; line-height: 1.3; font-weight: 400; }
+.level:not(.on) .level-desc { color: var(--muted); }
+@media (max-width: 560px) { .levels { grid-template-columns: repeat(2, 1fr); } }
