@@ -107,6 +107,7 @@ describe('saving scores', () => {
     expect((await call(handler, 'PUT', '/admin/scores/g1/t01', { sheet: { ...FULL, d1: 1 }, note: '', status: 'submitted', reason: 'late' }, admin)).status).toBe(423)
     const state = (await call(handler, 'GET', '/state', undefined, admin)).body
     expect(state.scores[0].sheet).toEqual(FULL)
+    expect((await call(handler, 'GET', '/state', undefined, g1)).body.locked).toBe(true)
   })
 })
 

@@ -39,7 +39,7 @@ export async function syncJudge(api: Api, store: ScoreStore, judgeId: string): P
     if (reset) await store.resetTo(epoch)
 
     // A locked result freezes every category, so the tablet treats them all as closed.
-    closedGroups = state.deliberation?.lockedAt ? CATEGORIES.map((c) => c.group) : state.closedGroups
+    closedGroups = state.locked ? CATEGORIES.map((c) => c.group) : state.closedGroups
     for (const r of (await store.listForJudge(judgeId)).filter((x) => !x.synced)) {
       try {
         await api.saveScore(r)

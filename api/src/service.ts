@@ -77,8 +77,11 @@ export class JudgingService {
     ])
     const publicJudges = judges.map(({ id, group, name, title }) => ({ id, group, name, title: title ?? '' }))
     const ties = categoryTies(scores, judges.length, picks)
+    const deliberation = (await this.store.getDeliberation()) ?? null
     const common = {
       closedGroups,
+      // Tablets freeze every category once the result is locked.
+      locked: !!deliberation?.lockedAt,
       runOrder: normalizeRunOrder(runOrder),
       serverTime: this.now().toISOString(),
       epoch: await this.store.getEpoch(),
@@ -100,7 +103,7 @@ export class JudgingService {
       ties,
       tieBreaks: picks,
       presence: await this.store.getPresence(),
-      deliberation: (await this.store.getDeliberation()) ?? null,
+      deliberation,
     }
   }
 

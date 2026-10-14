@@ -28,7 +28,7 @@ function fakeServer() {
     async state(): Promise<ServerState> {
       if (!up) throw new TypeError('Failed to fetch')
       return { judges: [{ id: 'g1', group: 1, name: 'Mba Yashinta' }], closedGroups: [...closed], scores: [...scores.values()],
-        runOrder: DEFAULT_RUN_ORDER, serverTime: new Date().toISOString(), ties: [], epoch, deliberation: { order: [], log: [], lockedAt } }
+        runOrder: DEFAULT_RUN_ORDER, serverTime: new Date().toISOString(), ties: [], epoch, locked: !!lockedAt }
     },
   }
   const reset = () => {
