@@ -3,9 +3,9 @@ import { moveTo, type RunOrder } from '../domain/runOrder'
 import { categoryOf, TEAMS } from '../domain/teams'
 
 /**
- * The running order as a drag-and-drop list. Drag a row by its handle (mouse, pen or
- * touch) and drop it where the team should present; the new order is saved on drop.
- * With the handle focused, the arrow keys move the team one place.
+ * The running order as a drag-and-drop list. Grab anywhere on a row and drop it where
+ * the team should present; the new order is saved on drop. On touch screens the grip
+ * starts the drag so the page can still scroll. A focused row moves with the arrow keys.
  */
 export function RunOrderList({ run, scored, judges, onReorder, onStage }: {
   run: RunOrder
@@ -24,14 +24,16 @@ export function RunOrderList({ run, scored, judges, onReorder, onStage }: {
     if (!dragging) setOrder(run.order)
   }, [run.order, dragging])
 
-  const begin = (e: PointerEvent<HTMLButtonElement>, id: string) => {
+  const begin = (e: PointerEvent<HTMLLIElement>, id: string) => {
+    if (e.button !== 0 || (e.target as HTMLElement).closest('button')) return
+    if (e.pointerType === 'touch' && !(e.target as HTMLElement).closest('.drag-grip')) return
     e.preventDefault()
     e.currentTarget.setPointerCapture(e.pointerId)
     startOrder.current = order
     setDragging(id)
   }
 
-  const move = (e: PointerEvent<HTMLButtonElement>) => {
+  const move = (e: PointerEvent<HTMLLIElement>) => {
     if (!dragging || !listRef.current) return
     const rows = [...listRef.current.querySelectorAll<HTMLLIElement>('li[data-id]')]
     // The slot is the first row whose middle is below the pointer.
@@ -51,7 +53,8 @@ export function RunOrderList({ run, scored, judges, onReorder, onStage }: {
     if (order.join() !== startOrder.current.join()) onReorder(order)
   }
 
-  const key = (e: KeyboardEvent<HTMLButtonElement>, id: string, i: number) => {
+  const key = (e: KeyboardEvent<HTMLLIElement>, id: string, i: number) => {
+    if (e.target !== e.currentTarget) return
     const delta = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0
     if (!delta) return
     e.preventDefault()
@@ -68,20 +71,24 @@ export function RunOrderList({ run, scored, judges, onReorder, onStage }: {
         const t = TEAMS.find((x) => x.id === id)!
         const cls = [id === run.current ? 'live' : '', id === dragging ? 'dragging' : ''].filter(Boolean).join(' ')
         return (
-          <li key={id} data-id={id} className={cls || undefined}>
-            <button
-              className="drag-handle"
-              aria-label={`Drag ${t.appName} to reorder (or use arrow keys)`}
-              title="Drag to reorder"
-              onPointerDown={(e) => begin(e, id)}
-              onPointerMove={move}
-              onPointerUp={end}
-              onPointerCancel={end}
-              onKeyDown={(e) => key(e, id, i)}
-            >⠿</button>
+          <li
+            key={id}
+            data-id={id}
+            className={cls || undefined}
+            tabIndex={0}
+            aria-label={`${i + 1}. ${t.appName}. Drag, or use the arrow keys, to reorder`}
+            onPointerDown={(e) => begin(e, id)}
+            onPointerMove={move}
+            onPointerUp={end}
+            onPointerCancel={end}
+            onKeyDown={(e) => key(e, id, i)}
+          >
+            <span className="drag-grip" aria-hidden="true">⠿</span>
             <span className="run-pos">{i + 1}</span>
             <span className="run-name"><strong>{t.appName}</strong> <span className="muted small">{categoryOf(t.category).name} · {scored(id)}/{judges} scored</span></span>
-            <button className="secondary" disabled={id === run.current} onClick={() => onStage(id)}>On stage</button>
+            {id === run.current
+              ? <span className="run-live-tag">● On stage</span>
+              : <button className="secondary" onClick={() => onStage(id)}>On stage</button>}
           </li>
         )
       })}
