@@ -51,10 +51,11 @@ Resources:
     Type: AWS::Serverless::HttpApi
     Properties:
       CorsConfiguration:
-        AllowOrigins: !If
-          - HasCustomDomain
-          - [!Ref AllowedOrigin, !Sub 'https://${CustomDomain}']
-          - [!Ref AllowedOrigin]
+        # SAM cannot take an Fn::If around the whole list, so only the second entry is
+        # conditional (it repeats AllowedOrigin when there is no custom domain).
+        AllowOrigins:
+          - !Ref AllowedOrigin
+          - !If [HasCustomDomain, !Sub 'https://${CustomDomain}', !Ref AllowedOrigin]
         AllowMethods: [GET, POST, PUT, OPTIONS]
         AllowHeaders: [authorization, content-type]
         MaxAge: 600
