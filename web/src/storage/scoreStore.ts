@@ -2,6 +2,7 @@
 // The sync to the backend (later) reads records with synced === false.
 
 import { openDB, type IDBPDatabase } from 'idb'
+import { EMPTY_DELIBERATION, type Deliberation } from '../domain/deliberation'
 import type { PartialSheet } from '../domain/scoring'
 
 export type ScoreStatus = 'draft' | 'submitted'
@@ -19,6 +20,7 @@ export interface ScoreRecord {
 
 const DB_NAME = 'cendekiawan-judge'
 const STORE = 'scores'
+const META = 'meta'
 
 export class ScoreStore {
   private db: IDBPDatabase
@@ -28,10 +30,13 @@ export class ScoreStore {
   }
 
   static async open(name = DB_NAME): Promise<ScoreStore> {
-    const db = await openDB(name, 1, {
-      upgrade(db) {
-        const s = db.createObjectStore(STORE, { keyPath: ['judgeId', 'teamId'] })
-        s.createIndex('judgeId', 'judgeId')
+    const db = await openDB(name, 2, {
+      upgrade(db, oldVersion) {
+        if (oldVersion < 1) {
+          const s = db.createObjectStore(STORE, { keyPath: ['judgeId', 'teamId'] })
+          s.createIndex('judgeId', 'judgeId')
+        }
+        if (oldVersion < 2) db.createObjectStore(META)
       },
     })
     return new ScoreStore(db)
@@ -71,6 +76,14 @@ export class ScoreStore {
     await tx.store.put(next)
     await tx.done
     return next
+  }
+
+  async getDeliberation(): Promise<Deliberation> {
+    return (await this.db.get(META, 'deliberation')) ?? EMPTY_DELIBERATION
+  }
+
+  async saveDeliberation(d: Deliberation): Promise<void> {
+    await this.db.put(META, d, 'deliberation')
   }
 
   close(): void {

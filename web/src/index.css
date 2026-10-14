@@ -63,3 +63,12 @@ th, td { text-align: left; padding: 8px 6px; border-top: 1px solid var(--border)
 .standing li { display: flex; justify-content: space-between; padding: 4px 0; }
 .mc li { padding: 4px 0; }
 .standing li span:last-child { white-space: nowrap; margin-left: 8px; }
+.moves { white-space: nowrap; text-align: right; }
+.small-btn { min-width: 40px; min-height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); margin-left: 4px; }
+.small-btn:disabled { opacity: 0.3; }
+.reason { margin: 12px 0; display: flex; flex-direction: column; gap: 8px; }
+.reason label { display: flex; flex-direction: column; gap: 6px; }
+.reason input { font: inherit; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.row { display: flex; justify-content: flex-end; gap: 12px; align-items: center; }
+.primary.compact { width: auto; min-height: 44px; padding: 0 24px; }
+.log { margin: 8px 0; padding-left: 18px; }

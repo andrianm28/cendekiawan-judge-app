@@ -30,4 +30,11 @@ describe('ScoreStore', () => {
     expect((await store.listForJudge('g1')).map((r) => r.teamId)).toEqual(['t01'])
     expect(await store.listAll()).toHaveLength(2)
   })
+
+  it('keeps the deliberation state', async () => {
+    const store = await fresh()
+    expect((await store.getDeliberation()).order).toEqual([])
+    await store.saveDeliberation({ order: ['t05'], log: [], lockedAt: null })
+    expect((await store.getDeliberation()).order).toEqual(['t05'])
+  })
 })
