@@ -27,7 +27,7 @@ describe('running order', () => {
     const up = moveTo(DEFAULT_RUN_ORDER, 't20', 0)
     expect(up.order[0]).toBe('t20')
     expect(up.order[1]).toBe('t01')
-    expect(moveTo(DEFAULT_RUN_ORDER, 't03', 99).order.at(-1)).toBe('t03')
+    expect(moveTo(DEFAULT_RUN_ORDER, 't03', 99).order[DEFAULT_RUN_ORDER.order.length - 1]).toBe('t03')
     expect(moveTo(DEFAULT_RUN_ORDER, 't03', 2)).toBe(DEFAULT_RUN_ORDER)
     expect(moveTo(DEFAULT_RUN_ORDER, 'nope', 0)).toBe(DEFAULT_RUN_ORDER)
   })

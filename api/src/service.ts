@@ -111,6 +111,7 @@ export class JudgingService {
     const team = TEAMS.find((t) => t.id === teamId)
     if (!judge || !team) throw new ApiError(404, 'not_found', 'Unknown judge or team')
     validate(input)
+    await this.requireUnlocked()
     if ((await this.store.getClosedGroups()).includes(categoryOf(team.category).group)) {
       throw new ApiError(423, 'group_closed', 'This category is closed. Ask the operator to change a score.')
     }
@@ -132,11 +133,17 @@ export class JudgingService {
     return next
   }
 
+  /** Once the result is locked the scores behind it are frozen too, or a late change could move a winner. */
+  private async requireUnlocked() {
+    if ((await this.store.getDeliberation())?.lockedAt) throw new ApiError(423, 'locked', 'The result is locked. Scores can no longer change.')
+  }
+
   /** Operator change to a score after the fact, always with a reason in the audit log. */
   async correctScore(s: Session, judgeId: string, teamId: string, input: Omit<ScoreInput, 'version'>, reason: string) {
     requireAdmin(s)
     if (!reason.trim()) throw new ApiError(400, 'reason_required', 'A reason is required')
     validate({ ...input, version: 0 })
+    await this.requireUnlocked()
     const prev = await this.store.getScore(judgeId, teamId)
     if (!prev) throw new ApiError(404, 'not_found', 'No score to correct')
     const next: StoredScore = { ...prev, ...input, version: prev.version + 1, updatedAt: this.now().toISOString() }
