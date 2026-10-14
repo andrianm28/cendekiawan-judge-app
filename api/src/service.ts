@@ -165,8 +165,11 @@ export class JudgingService {
     if (!reason.trim()) throw new ApiError(400, 'reason_required', 'A reason is required')
     validate({ ...input, version: 0 })
     await this.requireUnlocked()
-    const prev = await this.store.getScore(judgeId, teamId)
-    if (!prev) throw new ApiError(404, 'not_found', 'No score to correct')
+    if (!(await this.store.getJudges()).some((j) => j.id === judgeId) || !TEAMS.some((t) => t.id === teamId)) {
+      throw new ApiError(404, 'not_found', 'Unknown judge or team')
+    }
+    // No sheet yet (a tablet failed before saving): the operator enters it from the paper backup.
+    const prev = (await this.store.getScore(judgeId, teamId)) ?? { judgeId, teamId, sheet: {}, note: '', status: 'draft' as const, version: 0, updatedAt: '' }
     const next: StoredScore = { ...prev, ...input, version: prev.version + 1, updatedAt: this.now().toISOString() }
     await this.store.putScore(next)
     await this.audit('correct_score', { judgeId, teamId, reason: reason.trim(), before: prev, after: next })

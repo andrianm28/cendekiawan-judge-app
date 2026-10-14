@@ -282,6 +282,17 @@ describe('admin', () => {
     expect((await lockWith(after)).status).toBe(200)
   })
 
+  it('lets the operator enter a paper sheet the tablet never saved', async () => {
+    const { handler } = await setup()
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    const body = { sheet: FULL, note: 'from paper', status: 'submitted', reason: 'Tablet failed, paper backup' }
+    const r = await call(handler, 'PUT', '/admin/scores/g2/t07', body, admin)
+    expect(r.status).toBe(200)
+    expect(r.body).toMatchObject({ judgeId: 'g2', teamId: 't07', status: 'submitted', version: 1 })
+    expect((await call(handler, 'PUT', '/admin/scores/g9/t07', body, admin)).status).toBe(404)
+    expect((await call(handler, 'PUT', '/admin/scores/g2/t99', body, admin)).status).toBe(404)
+  })
+
   it('throws typed errors from the service', async () => {
     const { service } = await setup()
     await expect(service.login('abc')).rejects.toBeInstanceOf(ApiError)

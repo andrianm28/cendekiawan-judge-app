@@ -23,7 +23,7 @@ export function PrintSheets({ judges, order, onBack }: { judges: Judge[]; order?
 
       <section className="print-page">
         <Brand title="Judging rubric · Live demo" />
-        <p className="small">Score each criterion 1 Poor · 2 Fair · 3 Good · 4 Excellent. Solution (D1–D5) and Live Demo (V1–V4) are 50% each.</p>
+        <p className="small">Score each criterion 1 Poor · 2 Fair · 3 Good · 4 Excellent. Solution (D1–D5) and Live Demo (V1–V4) are 50% each. Most criteria land on 2 or 3; give 1 or 4 only when you can point to what earns it.</p>
         <table>
           <thead><tr><th>Criterion</th>{([1, 2, 3, 4] as const).map((l) => <th key={l}>{l} {LEVEL_NAMES[l]}</th>)}</tr></thead>
           <tbody>

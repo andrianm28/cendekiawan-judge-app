@@ -38,7 +38,7 @@ export const SOLUTION: Criterion[] = [
       1: 'Did not work',
       2: 'Worked, but with problems',
       3: 'Worked smoothly from start to end',
-      4: 'Worked smoothly and needs no explaining at all',
+      4: 'Worked smoothly and felt like a finished product',
     },
   },
   {
