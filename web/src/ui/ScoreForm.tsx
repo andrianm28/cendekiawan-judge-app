@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { DEMO, LEVEL_NAMES, SOLUTION, type Criterion } from '../domain/rubric'
 import { c1, c2, finalScore, isComplete, type Level, type PartialSheet } from '../domain/scoring'
-import type { Team } from '../domain/teams'
+import { categoryOf, type Team } from '../domain/teams'
 import type { ScoreRecord } from '../storage/scoreStore'
 import { Header } from './Header'
 import { Timer } from './Timer'
@@ -16,9 +16,13 @@ interface Props {
   onBack: () => void
   /** Replaces the submit bar, e.g. with the operator's correction form. */
   footer?: ReactNode
+  /** Pitch timer start set by the operator (this tablet's clock); omit for the judge's own timer. */
+  timerStartedAt?: number | null
+  /** This team is on stage now. */
+  onStage?: boolean
 }
 
-export function ScoreForm({ team, record, locked, onChange, onBack, footer }: Props) {
+export function ScoreForm({ team, record, locked, onChange, onBack, footer, timerStartedAt, onStage }: Props) {
   const sheet = record?.sheet ?? {}
   const complete = isComplete(sheet)
   const submitted = record?.status === 'submitted'
@@ -29,16 +33,16 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer }: Pr
         <button className="link" onClick={onBack}>‹ Teams</button>
         <div className="bar-title">
           <strong>{team.appName}</strong>
-          <span className="sub">{team.teamName} · {team.university}</span>
+          <span className="sub">{onStage && <span className="on-stage">● On stage</span>}{team.teamName} · {team.university} · {categoryOf(team.category).name}</span>
         </div>
-        <Timer />
+        <Timer startedAt={timerStartedAt} />
         <div className="final" aria-live="polite">
           <span className="final-num">{complete ? finalScore(sheet) : '–'}</span>
           <span className="sub small">/100</span>
         </div>
       </Header>
 
-      {locked && <p className="banner">This group is closed. Ask the operator to change a score.</p>}
+      {locked && <p className="banner">This category is closed. Ask the operator to change a score.</p>}
 
       <Section title="Solution" subtitle={complete ? `C1 ${c1(sheet)}` : '50%'}
         criteria={SOLUTION} sheet={sheet} disabled={locked} onPick={(k, l) => onChange({ sheet: { [k]: l } })} />
@@ -58,7 +62,7 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer }: Pr
 
       <footer className="actions">
         {footer ?? (submitted ? (
-          <p className="muted">Submitted. You can still change scores until the group is closed.</p>
+          <p className="muted">Submitted. You can still change scores until the category is closed.</p>
         ) : (
           <button className="primary" disabled={!complete || locked} onClick={() => onChange({ status: 'submitted' })}>
             {complete ? 'Submit score' : `Score all 9 criteria (${Object.keys(sheet).length}/9)`}

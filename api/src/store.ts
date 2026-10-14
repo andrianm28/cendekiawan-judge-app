@@ -2,6 +2,9 @@
 
 import type { PartialSheet } from '../../web/src/domain/scoring'
 import type { Deliberation } from '../../web/src/domain/deliberation'
+import type { RunOrder } from '../../web/src/domain/runOrder'
+import type { TieBreak, TieBreaks } from '../../web/src/domain/ties'
+import type { CategoryId } from '../../web/src/domain/teams'
 
 export interface StoredScore {
   judgeId: string
@@ -43,6 +46,12 @@ export interface Store {
   getDeliberation(): Promise<Deliberation | undefined>
   putDeliberation(d: Deliberation): Promise<void>
 
+  getRunOrder(): Promise<RunOrder | undefined>
+  putRunOrder(r: RunOrder): Promise<void>
+
+  getTieBreaks(): Promise<TieBreaks>
+  putTieBreak(category: CategoryId, pick: TieBreak): Promise<void>
+
   touchPresence(judgeId: string, at: string): Promise<void>
   getPresence(): Promise<Record<string, string>>
 
@@ -56,6 +65,8 @@ export function memoryStore(): Store {
   const scores = new Map<string, StoredScore>()
   const closed = new Set<number>()
   let deliberation: Deliberation | undefined
+  let runOrder: RunOrder | undefined
+  const ties: TieBreaks = {}
   const presence: Record<string, string> = {}
   const audit: AuditEntry[] = []
   const clone = <T>(x: T): T => structuredClone(x)
@@ -71,6 +82,10 @@ export function memoryStore(): Store {
     setGroupClosed: async (g, c) => void (c ? closed.add(g) : closed.delete(g)),
     getDeliberation: async () => clone(deliberation),
     putDeliberation: async (d) => void (deliberation = clone(d)),
+    getRunOrder: async () => clone(runOrder),
+    putRunOrder: async (r) => void (runOrder = clone(r)),
+    getTieBreaks: async () => clone(ties),
+    putTieBreak: async (c, p) => void (ties[c] = clone(p)),
     touchPresence: async (j, at) => void (presence[j] = at),
     getPresence: async () => ({ ...presence }),
     appendAudit: async (e) => void audit.push(clone(e)),

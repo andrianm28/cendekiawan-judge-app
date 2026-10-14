@@ -1,6 +1,10 @@
 // Category ranking and the proposed Rank 1–5, per the locked winner format:
 // the top team in each category wins it, then the five winners are ordered by
 // final score. Judges confirm or reorder that proposal during deliberation.
+//
+// Every judge scores every team and a team's final is the average across judges.
+// When the top finals in a category are equal, the judge who owns that category
+// picks the winner (ADR 0003); D1 and D4 are shown to help, not applied.
 
 import { averagedFinal, finalTimes8, type ScoreSheet } from './scoring'
 import type { CategoryId, Team } from './teams'
@@ -20,7 +24,11 @@ export interface CategoryStanding {
   ranked: TeamResult[]
   /** Teams with no submitted score yet. */
   missing: Team[]
-  /** True when the top two cannot be separated by final, D1 or D4: judges decide. */
+  /** Teams sharing the top final; more than one means a tie. */
+  tiedTop: TeamResult[]
+  /** The tied team the category's judge picked, if that pick still applies. */
+  pick: string | null
+  /** True while a tie at the top has no pick: the category's judge decides. */
   tiedAtTop: boolean
 }
 
@@ -47,18 +55,35 @@ export function rankCategory(
   category: CategoryId,
   teams: Team[],
   sheetsByTeam: Map<string, ScoreSheet[]>,
+  /** Team the category's judge picked to break a tie at the top. */
+  pick?: string | null,
 ): CategoryStanding {
   const inCategory = teams.filter((t) => t.category === category)
   const scored = inCategory.filter((t) => (sheetsByTeam.get(t.id) ?? []).length > 0)
-  const ranked = scored
+  const sorted = scored
     .map((t) => teamResult(t, sheetsByTeam.get(t.id)!))
     .sort((a, b) => compareResults(a, b) || a.team.order - b.team.order)
+  const tiedTop = sorted.length > 1 && sorted[0].final === sorted[1].final ? sorted.filter((r) => r.final === sorted[0].final) : sorted.slice(0, 1)
+  const tie = tiedTop.length > 1
+  const applies = tie && !!pick && tiedTop.some((r) => r.team.id === pick)
+  const ranked = applies ? [...sorted.filter((r) => r.team.id === pick), ...sorted.filter((r) => r.team.id !== pick)] : sorted
   return {
     category,
     ranked,
     missing: inCategory.filter((t) => !scored.includes(t)),
-    tiedAtTop: ranked.length > 1 && compareResults(ranked[0], ranked[1]) === 0,
+    tiedTop,
+    pick: applies ? pick! : null,
+    tiedAtTop: tie && !applies,
   }
+}
+
+/** Average of a per-sheet measure, to one decimal, for display. */
+export const average = (sheets: ScoreSheet[], f: (s: ScoreSheet) => number): number =>
+  Math.round((sheets.reduce((a, s) => a + f(s), 0) / sheets.length) * 10) / 10
+
+/** True when every team in the category has a submitted sheet from every judge. */
+export function categoryComplete(category: CategoryId, teams: Team[], sheetsByTeam: Map<string, ScoreSheet[]>, judges: number): boolean {
+  return teams.filter((t) => t.category === category).every((t) => (sheetsByTeam.get(t.id) ?? []).length >= judges)
 }
 
 export const AWARDS = [

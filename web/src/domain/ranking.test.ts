@@ -27,25 +27,29 @@ describe('rankCategory', () => {
     expect(s.tiedAtTop).toBe(false)
   })
 
-  it('breaks an equal final on D1, then D4', () => {
+  it('leaves an equal final at the top to the category judge, even when D1 differs', () => {
     // Both 77 after rounding; A has D1=4, B has D1=3.
     const a = sheet([4, 3, 3, 3, 2], [4, 3, 3, 2])
     const b = sheet([3, 3, 3, 4, 2], [4, 3, 3, 2])
-    const s = rankCategory('health', TEAMS, new Map([['t05', [b]], ['t06', [a]]]))
-    expect(s.ranked[0].final).toBe(s.ranked[1].final)
-    expect(s.ranked[0].team.id).toBe('t06')
-    expect(s.tiedAtTop).toBe(false)
+    const scores = new Map([['t05', [b]], ['t06', [a]], ['t07', [KELAS]]])
+    const s = rankCategory('health', TEAMS, scores)
+    expect(s.tiedAtTop).toBe(true)
+    expect(s.tiedTop.map((r) => r.team.id)).toEqual(['t06', 't05'])
+    expect(s.pick).toBeNull()
 
-    // Same D1, D4 decides.
-    const c = sheet([3, 3, 3, 4, 2], [4, 3, 3, 2])
-    const d = sheet([3, 3, 4, 3, 2], [4, 3, 3, 2])
-    const s2 = rankCategory('health', TEAMS, new Map([['t05', [d]], ['t06', [c]]]))
-    expect(s2.ranked[0].team.id).toBe('t06')
+    const picked = rankCategory('health', TEAMS, scores, 't05')
+    expect(picked.ranked.map((r) => r.team.id)).toEqual(['t05', 't06', 't07'])
+    expect(picked.tiedAtTop).toBe(false)
+    expect(picked.pick).toBe('t05')
+
+    // A pick outside the tied teams does nothing.
+    expect(rankCategory('health', TEAMS, scores, 't07').tiedAtTop).toBe(true)
   })
 
-  it('flags a tie the rules cannot break', () => {
-    const s = rankCategory('health', TEAMS, new Map([['t05', [WARIS]], ['t06', [WARIS]]]))
-    expect(s.tiedAtTop).toBe(true)
+  it('averages every judge before comparing', () => {
+    const s = rankCategory('health', TEAMS, new Map([['t05', [WARIS, KELAS]], ['t06', [WARIS, WARIS]]]))
+    expect(s.ranked.map((r) => [r.team.id, r.final, r.judges])).toEqual([['t06', 77, 2], ['t05', 68, 2]])
+    expect(s.tiedAtTop).toBe(false)
   })
 })
 

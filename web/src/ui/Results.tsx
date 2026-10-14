@@ -3,7 +3,8 @@ import { applyOrder, EMPTY_DELIBERATION, lock, moveRank, type Deliberation, type
 import { resultsCsv, scoresCsv } from '../domain/exportCsv'
 import { announcementOrder, proposeRanks, rankCategory } from '../domain/ranking'
 import { c1, c2, isComplete, type ScoreSheet } from '../domain/scoring'
-import { CATEGORIES, categoryOf, TEAMS } from '../domain/teams'
+import { CATEGORIES, categoryOf, TEAMS, type CategoryId } from '../domain/teams'
+import { categoryTies, type TieBreaks } from '../domain/ties'
 import { JUDGES, type Judge } from '../judges'
 import type { ScoreRecord } from '../storage/scoreStore'
 import { download } from './download'
@@ -14,11 +15,19 @@ import { getStore } from './useScores'
 export interface DeliberationIO {
   load: () => Promise<Deliberation>
   save: (d: Deliberation) => Promise<void>
+  /** Winners picked by each category's judge when its top finals are equal. */
+  loadTies: () => Promise<TieBreaks>
+  pickTie: (category: CategoryId, teamId: string) => Promise<void>
 }
 
 const localDeliberation: DeliberationIO = {
   load: async () => (await getStore()).getDeliberation(),
   save: async (d) => (await getStore()).saveDeliberation(d),
+  loadTies: async () => (await getStore()).getTieBreaks(),
+  pickTie: async (category, teamId) => {
+    const store = await getStore()
+    await store.saveTieBreaks({ ...(await store.getTieBreaks()), [category]: { teamId, by: 'local', at: new Date().toISOString() } })
+  },
 }
 
 export function Results({ records, onBack, io = localDeliberation, judges = JUDGES }: {
@@ -31,10 +40,23 @@ export function Results({ records, onBack, io = localDeliberation, judges = JUDG
   const [delib, setDelib] = useState<Deliberation>(EMPTY_DELIBERATION)
   const [pending, setPending] = useState<{ from: number; to: number } | null>(null)
   const [reason, setReason] = useState('')
+  const [ties, setTies] = useState<TieBreaks>({})
 
   useEffect(() => {
     void io.load().then(setDelib)
   }, [io])
+  // A judge may pick a tie winner on their tablet while this screen is open.
+  useEffect(() => {
+    void io.loadTies().then(setTies)
+  }, [io, records])
+  const pickTie = async (category: CategoryId, teamId: string) => {
+    try {
+      await io.pickTie(category, teamId)
+    } catch (e) {
+      window.alert(`Not saved: ${e instanceof Error ? e.message : e}`)
+    }
+    setTies(await io.loadTies())
+  }
   const persist = async (d: Deliberation) => {
     const before = delib
     setDelib(d)
@@ -57,9 +79,11 @@ export function Results({ records, onBack, io = localDeliberation, judges = JUDG
     const sheets = sheetsByTeam.get(teamId) ?? []
     return Math.round((sheets.reduce((a, s) => a + f(s), 0) / sheets.length) * 10) / 10
   }
-  const standings = CATEGORIES.map((c) => rankCategory(c.id, TEAMS, sheetsByTeam))
+  const standings = CATEGORIES.map((c) => rankCategory(c.id, TEAMS, sheetsByTeam, ties[c.id]?.teamId))
   const { ranks, stale } = applyOrder(proposeRanks(standings), delib)
-  const allIn = standings.every((s) => s.missing.length === 0)
+  const openTies = categoryTies(records, judges.length, ties)
+  const allIn = [...sheetsByTeam.values()].reduce((a, x) => a + x.length, 0) >= TEAMS.length * judges.length
+  const unresolved = standings.some((s) => s.tiedAtTop)
   const locked = delib.lockedAt !== null
 
   const confirmMove = () => {
@@ -92,7 +116,7 @@ export function Results({ records, onBack, io = localDeliberation, judges = JUDG
       <section className="card">
         <h2>Rank 1–5 {locked && <span className="pill submitted">Locked</span>}</h2>
         <p className="muted small">
-          Category winners ordered by final score. Each category had a different judge, so confirm or reorder before locking.
+          Category winners ordered by final score (average of all judges). Confirm or reorder before locking.
         </p>
         <table>
           <thead><tr><th>Rank</th><th>Award</th><th>App</th><th>Category</th><th className="num">Final</th><th /></tr></thead>
@@ -145,21 +169,41 @@ export function Results({ records, onBack, io = localDeliberation, judges = JUDG
         {!locked && ranks.length === 5 && (
           <button
             className="primary"
-            disabled={!allIn}
-            title={allIn ? undefined : 'All 20 scores must be submitted first'}
+            disabled={!allIn || unresolved}
+            title={!allIn ? 'Every judge must submit every team first' : unresolved ? 'A category tie still needs its winner' : undefined}
             onClick={() => window.confirm('Lock the result? It cannot be changed afterwards.') && void persist(lock(ranks, delib))}
           >
             Lock result
           </button>
         )}
-        {!locked && !allIn && <p className="muted small">Lock becomes available once all 20 scores are submitted.</p>}
+        {!locked && !allIn && <p className="muted small">Lock becomes available once every judge has submitted all {TEAMS.length} teams.</p>}
+        {!locked && unresolved && <p className="muted small">A category has a tie at the top: its judge chooses the winner first.</p>}
       </section>
 
       <div className="grid">
         {standings.map((s) => (
           <section className="card" key={s.category}>
             <h2>Group {categoryOf(s.category).group}: {categoryOf(s.category).name}</h2>
-            {s.tiedAtTop && <p className="banner">Tie after D1 and D4: judges decide.</p>}
+            {(() => {
+              const tie = openTies.find((t) => t.category === s.category)
+              const owner = judges.find((j) => j.group === categoryOf(s.category).group)?.name ?? 'The category judge'
+              if (!tie) return s.tiedAtTop ? <p className="banner">Equal at the top. {owner} chooses the winner once every judge has scored this category.</p> : null
+              return (
+                <div className="banner no-print">
+                  {tie.pick ? `Tie: ${TEAMS.find((t) => t.id === tie.pick)?.appName} chosen as winner.` : `Tie: ${owner} chooses the winner.`}
+                  {!locked && (
+                    <div className="row tie-choices">
+                      {tie.tied.map((t) => (
+                        <button key={t.teamId} className="secondary" disabled={tie.pick === t.teamId}
+                          onClick={() => window.confirm(`Record ${TEAMS.find((x) => x.id === t.teamId)?.appName} as the ${categoryOf(s.category).name} winner?`) && void pickTie(s.category, t.teamId)}>
+                          {TEAMS.find((x) => x.id === t.teamId)?.appName} (D1 {t.d1}, D4 {t.d4})
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
             <ol className="standing">
               {s.ranked.map((r) => (
                 <li key={r.team.id}>
