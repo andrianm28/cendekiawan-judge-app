@@ -74,4 +74,17 @@ describe('proposeRanks', () => {
     ])
     expect(announcementOrder(ranks).map((r) => r.award)[0]).toBe('Rising Innovator')
   })
+
+  it('flags winners with the same final as a tie, even when D1 or D4 differ', () => {
+    // Both 77; the education winner has the higher D1, so it is listed first, but it is still a tie.
+    const scores = new Map([
+      ['t01', [sheet([4, 3, 3, 3, 2], [4, 3, 3, 2])]],
+      ['t05', [WARIS]],
+    ])
+    const ranks = proposeRanks(CATEGORIES.map((c) => rankCategory(c.id, TEAMS, scores)))
+    expect(ranks.map((r) => [r.winner.team.id, r.winner.final, r.tiedWithAbove])).toEqual([
+      ['t01', 77, false],
+      ['t05', 77, true],
+    ])
+  })
 })

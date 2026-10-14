@@ -46,10 +46,16 @@ export function teamResult(team: Team, sheets: ScoreSheet[]): TeamResult {
 // Compare averages a.x / a.judges vs b.x / b.judges without division.
 const avgCmp = (a: TeamResult, b: TeamResult, key: 'd1Sum' | 'd4Sum') => b[key] * a.judges - a[key] * b.judges
 
-/** Higher final first; ties broken by D1, then D4 (ToT rule). 0 means the judges decide. */
+/**
+ * Higher final first. Equal finals are listed by D1, then D4, only so the order is
+ * stable on screen; they still count as a tie (see `sameFinal`) and judges decide.
+ */
 export function compareResults(a: TeamResult, b: TeamResult): number {
   return b.final - a.final || avgCmp(a, b, 'd1Sum') || avgCmp(a, b, 'd4Sum')
 }
+
+/** Equal finals are a tie, whatever D1 and D4 say (ADR 0003). */
+export const sameFinal = (a: TeamResult, b: TeamResult): boolean => a.final === b.final
 
 export function rankCategory(
   category: CategoryId,
@@ -98,7 +104,7 @@ export interface ProposedRank {
   rank: number
   award: (typeof AWARDS)[number]
   winner: TeamResult
-  /** True when this winner cannot be separated from the one above by final, D1 or D4. */
+  /** True when this winner has the same final as the one above: the judges decide the order in deliberation. */
   tiedWithAbove: boolean
 }
 
@@ -110,7 +116,7 @@ export function proposeRanks(standings: CategoryStanding[]): ProposedRank[] {
     rank: i + 1,
     award: AWARDS[i],
     winner,
-    tiedWithAbove: i > 0 && compareResults(sorted[i - 1], winner) === 0,
+    tiedWithAbove: i > 0 && sameFinal(sorted[i - 1], winner),
   }))
 }
 

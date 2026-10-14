@@ -11,7 +11,7 @@
 - **Category winner**: the highest final in a category. If the top finals are equal once every judge has scored the category, the judge who owns it picks the winner (**tie pick**); D1 and D4 are shown to help, not applied.
 - **Closed category**: the operator closes a category; no judge can change those 4 teams' sheets afterwards (operator corrections still allowed, with a reason).
 - **Live leaderboard**: all teams ranked overall and per category from the scores in so far, refreshed every few seconds; for the operator laptop or a projector in the judges' room.
-- **Proposed rank**: the five category winners ordered by final into Rank 1–5. **Award** names: Rank 1 = Winner of AWS CendekiAwan, Rank 2, Rank 3, Rank 4 = Emerging Innovator, Rank 5 = Rising Innovator.
+- **Proposed rank**: the five category winners ordered by final into Rank 1–5. Winners with the same final are marked as a tie for the judges to order. **Award** names: Rank 1 = Winner of AWS CendekiAwan, Rank 2, Rank 3, Rank 4 = Emerging Innovator, Rank 5 = Rising Innovator.
 - **Deliberation**: 12.05–12.35, where judges confirm or reorder the proposed ranks (with a logged reason) and lock the result.
 - **MC sheet**: awards in announcement order, Rising → Emerging → Rank 3 → 2 → 1.
 - **Operator**: committee member on the laptop who runs the stage (running order, team on stage, pitch timer), tracks every judge's sheets, closes categories and corrects scores.

@@ -5,7 +5,8 @@ import type { Deliberation } from '../../web/src/domain/deliberation'
 import { CRITERIA, isComplete, type PartialSheet } from '../../web/src/domain/scoring'
 import { normalizeRunOrder, type RunOrder } from '../../web/src/domain/runOrder'
 import { CATEGORIES, categoryOf, TEAMS, type CategoryId } from '../../web/src/domain/teams'
-import { categoryTies } from '../../web/src/domain/ties'
+import { categoryTies, submittedSheets } from '../../web/src/domain/ties'
+import { proposeRanks, rankCategory } from '../../web/src/domain/ranking'
 import { hashPin, signToken, verifyPin, type Session } from './auth'
 import type { Store, StoredScore } from './store'
 
@@ -136,6 +137,23 @@ export class JudgingService {
     return next
   }
 
+  /**
+   * The same checks the Lock button makes, on the server: every judge submitted every
+   * team, no category tie is waiting for its judge, and the order holds exactly the
+   * five current category winners.
+   */
+  private async requireLockable(d: Deliberation) {
+    const [judges, scores, picks] = await Promise.all([this.store.getJudges(), this.store.listScores(), this.store.getTieBreaks()])
+    const sheets = submittedSheets(scores)
+    const submitted = [...sheets.values()].reduce((a, x) => a + x.length, 0)
+    if (submitted < TEAMS.length * judges.length) throw new ApiError(409, 'not_all_in', 'Every judge must submit every team before the result is locked')
+    const standings = CATEGORIES.map((c) => rankCategory(c.id, TEAMS, sheets, picks[c.id]?.teamId))
+    if (standings.some((s) => s.tiedAtTop)) throw new ApiError(409, 'tie_open', 'A category tie still needs its winner')
+    const winners = proposeRanks(standings).map((r) => r.winner.team.id)
+    const fits = d.order.length === winners.length && winners.every((id) => d.order.includes(id))
+    if (!fits) throw new ApiError(409, 'stale', 'The category winners changed; reload before locking')
+  }
+
   /** Once the result is locked the scores behind it are frozen too, or a late change could move a winner. */
   private async requireUnlocked() {
     if ((await this.store.getDeliberation())?.lockedAt) throw new ApiError(423, 'locked', 'The result is locked. Scores can no longer change.')
@@ -216,6 +234,7 @@ export class JudgingService {
     if (prev?.lockedAt) throw new ApiError(423, 'locked', 'The result is locked')
     const prevLog = prev?.log.length ?? 0
     if (d.log.length < prevLog) throw new ApiError(409, 'stale', 'Deliberation changed on another device', prev)
+    if (d.lockedAt) await this.requireLockable(d)
     await this.store.putDeliberation(d)
     for (const change of d.log.slice(prevLog)) await this.audit('reorder_rank', { ...change })
     if (d.lockedAt) await this.audit('lock_result', { order: d.order })
