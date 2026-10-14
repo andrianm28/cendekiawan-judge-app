@@ -8,6 +8,7 @@ import type { Judge } from '../judges'
 import type { ScoreRecord } from '../storage/scoreStore'
 import type { Api, AuditEntry, ServerState } from '../sync/api'
 import { Header } from './Header'
+import { JudgeAvatar, JudgeBadge } from './JudgeBadge'
 import { Leaderboard } from './Leaderboard'
 import { PrintSheets } from './PrintSheets'
 import { Results, type DeliberationIO } from './Results'
@@ -18,7 +19,7 @@ import { Timer } from './Timer'
 const EVERY_MS = 3000
 const LIVE_MS = 30_000
 
-type View = { kind: 'board' } | { kind: 'correct'; judge: Judge; team: Team } | { kind: 'results' } | { kind: 'print' } | { kind: 'leaderboard' } | { kind: 'tie'; tie: TieSummary }
+type View = { kind: 'board' } | { kind: 'correct'; judge: Judge; team: Team } | { kind: 'results' } | { kind: 'print' } | { kind: 'leaderboard' } | { kind: 'tie'; tie: TieSummary } | { kind: 'judge'; judge: Judge }
 
 /**
  * The operator's laptop: runs the stage (team on stage, running order, pitch timer),
@@ -70,6 +71,20 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
   if (view.kind === 'results') {
     return <Results records={records} judges={state?.judges} io={io} onBack={() => setView({ kind: 'board' })} />
   }
+  if (view.kind === 'judge') {
+    return (
+      <JudgeEditor
+        judge={view.judge}
+        judges={state?.judges ?? []}
+        onSave={async (change) => {
+          await api.updateJudge(view.judge.id, change)
+          await refresh()
+          setView({ kind: 'board' })
+        }}
+        onBack={() => setView({ kind: 'board' })}
+      />
+    )
+  }
   if (view.kind === 'tie') {
     return (
       <TiePick
@@ -111,6 +126,7 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
     <div className="screen wide">
       <Header>
         <div className="bar-title"><strong>Operator</strong><span className="sub">{submitted} of {expected} score sheets submitted</span></div>
+        <button className="link" onClick={() => window.open('/?screen=stage', 'cendekiawan-stage', 'popup,width=1280,height=720')}>Stage screen ↗</button>
         <button className="link" onClick={() => setView({ kind: 'leaderboard' })}>Leaderboard</button>
         <button className="link" onClick={() => setView({ kind: 'results' })}>Deliberation ›</button>
         <button className="link" onClick={() => setView({ kind: 'print' })}>Print sheets</button>
@@ -139,7 +155,7 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
                 {!run.current ? 'Start with first team ›' : run.order.indexOf(run.current) === run.order.length - 1 ? 'Finish ›' : 'Next team ›'}
               </button>
             </div>
-            <p className="muted small">Judges' tablets open the team on stage and show this timer. Judges only score.</p>
+            <p className="muted small">Judges' tablets open the team on stage and show this timer. Judges only score. <strong>Stage screen ↗</strong> opens the projector view (team, timer, up next; no scores): drag it to the projector and double-click for full screen.</p>
             <details className="run-order">
               <summary>Running order</summary>
               <ol>
@@ -171,17 +187,16 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
                 const owns = CATEGORIES.find((c) => c.group === judge.group)
                 return (
                   <li key={judge.id}>
+                    <JudgeAvatar judge={judge} />
                     <span className="team-name">
-                      <strong>{judge.name}</strong>
+                      <strong>Judge {judge.group} · {judge.name}</strong>
+                      {judge.title && <span className="small">{judge.title}</span>}
                       <span className="muted small">Owns {owns?.name ?? `Group ${judge.group}`} (tie-breaks) · {done}/{TEAMS.length} submitted</span>
                     </span>
                     <span className={ago < LIVE_MS ? 'seen live' : 'seen muted'}>
                       {ago < LIVE_MS ? '● online' : seen ? `seen ${Math.round(ago / 60000)} min ago` : 'not logged in'}
                     </span>
-                    <button className="secondary" onClick={() => {
-                      const name = window.prompt(`Judge name (owns ${owns?.name})`, judge.name)
-                      if (name && name.trim() !== judge.name) void act(() => api.renameJudge(judge.id, name.trim()))
-                    }}>Rename</button>
+                    <button className="secondary" onClick={() => setView({ kind: 'judge', judge })}>Edit judge</button>
                   </li>
                 )
               })}
@@ -246,6 +261,10 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
           })}
         </>
       )}
+      <ResetCard scores={records.length} onReset={() => act(async () => {
+        const r = await api.resetEventData()
+        window.alert(`Reset done: ${r.scores} score sheets removed. Tablets clear their copies on their next sync.`)
+      })} />
       <section className="card">
         <h2>Change log</h2>
         {audit.length === 0 ? <p className="muted small">No changes yet.</p> : (
@@ -260,6 +279,33 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
   )
 }
 
+/** Wipe the rehearsal (UAT) data. Typing RESET is the guard against a mis-tap on the day. */
+function ResetCard({ scores, onReset }: { scores: number; onReset: () => Promise<void> }) {
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  return (
+    <section className="card danger-zone">
+      <h2>Reset event data</h2>
+      <p className="small">
+        After a rehearsal: deletes all {scores} score sheets, tie picks, closed categories, the running order, the
+        deliberation and the change log, on the server and on every tablet. Judges, their names and all PINs stay.
+        Never use this during the Grand Final.
+      </p>
+      <div className="row reset-row">
+        <input type="text" placeholder="Type RESET" value={text} onChange={(e) => setText(e.target.value)} aria-label="Type RESET to confirm" />
+        <button className="secondary danger" disabled={text !== 'RESET' || busy} onClick={() => {
+          if (!window.confirm('Delete all event data now? This cannot be undone.')) return
+          setBusy(true)
+          void onReset().finally(() => {
+            setBusy(false)
+            setText('')
+          })
+        }}>Reset all data</button>
+      </div>
+    </section>
+  )
+}
+
 const initials = (name: string) => name.replace(/^(Mba|Pak|Bu|Dr\.?|Prof\.?)\s+/i, '').split(/\s+/).map((w) => w[0]).join('').slice(0, 3).toUpperCase() || name
 
 function describe(a: AuditEntry, judges: Judge[]): string {
@@ -270,15 +316,103 @@ function describe(a: AuditEntry, judges: Judge[]): string {
     case 'close_group': return `Closed ${CATEGORIES.find((c) => c.group === d.group)?.name ?? `Group ${d.group}`}`
     case 'open_group': return `Reopened ${CATEGORIES.find((c) => c.group === d.group)?.name ?? `Group ${d.group}`}`
     case 'correct_score': return `Corrected ${judge}'s score for ${team}: ${d.reason}`
-    case 'rename_judge': return `Renamed ${d.before} to ${d.after}`
+    case 'rename_judge': {
+      const parts = [d.before === d.after ? `Updated ${d.after}'s profile` : `Renamed ${d.before} to ${d.after}`]
+      if (d.toGroup) parts.push(`now owns ${CATEGORIES.find((c) => c.group === d.toGroup)?.name}${d.swappedWith ? ` (swapped with ${judges.find((j) => j.id === d.swappedWith)?.name ?? d.swappedWith})` : ''}`)
+      if (d.pinChanged) parts.push('PIN changed')
+      return parts.join(', ')
+    }
     case 'reorder_rank': return `${team}: Rank ${d.from} → ${d.to}. ${d.reason}`
     case 'lock_result': return 'Locked the result'
     case 'set_order': return 'Changed the running order'
     case 'now_presenting': return d.teamId ? `On stage: ${team}` : 'Stage cleared'
     case 'start_timer': return `Timer started for ${team}`
+    case 'reset': return `Event data reset (${d.scores} score sheets removed)`
     case 'tie_pick': return `Tie in ${CATEGORIES.find((c) => c.id === d.category)?.name ?? d.category}: ${a.actor === 'admin' ? 'operator recorded' : `${judges.find((j) => j.id === a.actor)?.name ?? a.actor} chose`} ${team}`
     default: return a.action
   }
+}
+
+/**
+ * Operator sets up one judge: name, role, the category they own for tie-breaks and,
+ * optionally, a new PIN. Picking a category another judge owns swaps the two.
+ */
+function JudgeEditor({ judge, judges, onSave, onBack }: {
+  judge: Judge
+  judges: Judge[]
+  onSave: (change: { name: string; title: string; group: number; pin?: string }) => Promise<void>
+  onBack: () => void
+}) {
+  const [name, setName] = useState(judge.name)
+  const [title, setTitle] = useState(judge.title ?? '')
+  const [group, setGroup] = useState(judge.group)
+  const [pin, setPin] = useState('')
+  const [pin2, setPin2] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const holder = judges.find((j) => j.id !== judge.id && j.group === group)
+  const pinBad = pin !== '' && !/^\d{6,8}$/.test(pin)
+  const pinMismatch = pin !== '' && pin !== pin2
+  const canSave = name.trim() !== '' && !pinBad && !pinMismatch && !busy
+  const preview: Judge = { ...judge, name: name.trim() || judge.name, title: title.trim(), group }
+
+  return (
+    <div className="screen judge-editor">
+      <Header>
+        <button className="link" onClick={onBack}>‹ Board</button>
+        <div className="bar-title"><strong>Edit Judge {judge.group}</strong><span className="sub">Name, role, category and PIN</span></div>
+      </Header>
+      <section className="card">
+        <p className="muted small">This is what the judge sees at the top of their tablet:</p>
+        <JudgeBadge judge={preview} />
+      </section>
+      <form className="card form-grid" onSubmit={(e) => {
+        e.preventDefault()
+        if (!canSave) return
+        setBusy(true)
+        setError('')
+        onSave({ name: name.trim(), title: title.trim(), group, ...(pin ? { pin } : {}) })
+          .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+          .finally(() => setBusy(false))
+      }}>
+        <label>
+          <span>Name</span>
+          <input type="text" value={name} maxLength={60} required onChange={(e) => setName(e.target.value)} />
+        </label>
+        <label>
+          <span>Role and organisation</span>
+          <input type="text" value={title} maxLength={80} placeholder="e.g. President Director, Elitery" onChange={(e) => setTitle(e.target.value)} />
+        </label>
+        <label>
+          <span>Category they own (decides a tie in that category)</span>
+          <select value={group} onChange={(e) => setGroup(Number(e.target.value))}>
+            {CATEGORIES.map((c) => <option key={c.id} value={c.group}>{c.name}</option>)}
+          </select>
+          {group !== judge.group && holder && (
+            <span className="small warn">{holder.name} owns this now and will take {CATEGORIES.find((c) => c.group === judge.group)?.name} instead.</span>
+          )}
+        </label>
+        <label>
+          <span>New PIN (6–8 digits, leave empty to keep the current PIN)</span>
+          <input type="password" inputMode="numeric" autoComplete="new-password" value={pin} maxLength={8} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} />
+          {pinBad && <span className="small warn">The PIN must be 6 to 8 digits.</span>}
+        </label>
+        {pin !== '' && (
+          <label>
+            <span>Repeat the new PIN</span>
+            <input type="password" inputMode="numeric" autoComplete="new-password" value={pin2} maxLength={8} onChange={(e) => setPin2(e.target.value.replace(/\D/g, ''))} />
+            {pin2 !== '' && pinMismatch && <span className="small warn">The two PINs do not match.</span>}
+          </label>
+        )}
+        {pin !== '' && <p className="small muted">The judge keeps using their tablet until they log out; the new PIN is needed the next time they log in. Give it to them in person.</p>}
+        {error && <p className="banner">{error}</p>}
+        <div className="editor-actions">
+          <button type="button" className="secondary" onClick={onBack}>Cancel</button>
+          <button type="submit" className="primary" disabled={!canSave}>Save judge</button>
+        </div>
+      </form>
+    </div>
+  )
 }
 
 /** Operator edits a judge's sheet; nothing is sent until a reason is given. */

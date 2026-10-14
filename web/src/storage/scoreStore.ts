@@ -108,6 +108,20 @@ export class ScoreStore {
     await this.db.put(META, d, 'deliberation')
   }
 
+  /** The server's event-data id this tablet's records belong to (null before any reset). */
+  async getEpoch(): Promise<string | null> {
+    return (await this.db.get(META, 'epoch')) ?? null
+  }
+
+  /** The operator reset the event data: drop every local record and start over under the new epoch. */
+  async resetTo(epoch: string | null): Promise<void> {
+    const tx = this.db.transaction([STORE, META], 'readwrite')
+    await tx.objectStore(STORE).clear()
+    await tx.objectStore(META).clear()
+    await tx.objectStore(META).put(epoch, 'epoch')
+    await tx.done
+  }
+
   async getTieBreaks(): Promise<TieBreaks> {
     return (await this.db.get(META, 'tiebreaks')) ?? {}
   }

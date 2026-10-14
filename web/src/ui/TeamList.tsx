@@ -4,6 +4,7 @@ import { CATEGORIES, categoryOf, type Team } from '../domain/teams'
 import type { Judge } from '../judges'
 import type { ScoreRecord } from '../storage/scoreStore'
 import { Header } from './Header'
+import { JudgeBadge } from './JudgeBadge'
 
 interface Props {
   judge: Judge
@@ -40,6 +41,7 @@ export function TeamList({ judge, teams, records, onOpen, onLogout, current, sta
         {status}
         <button className="link" onClick={onLogout}>Log out</button>
       </Header>
+      <JudgeBadge judge={judge} />
       {notice}
       <ul className="teams">
         {teams.map((t) => {

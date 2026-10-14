@@ -26,8 +26,9 @@ if (new Set(Object.values(pins)).size < JUDGES.length || Object.values(pins).inc
 }
 
 const store = dynamoStore(table)
-const existing = new Map((await store.getJudges()).map((j) => [j.id, j.name]))
-await store.putJudges(JUDGES.map((j) => ({ ...j, name: existing.get(j.id) ?? j.name, pinHash: hashPin(pins[j.id]) })))
+const before = new Map((await store.getJudges()).map((j) => [j.id, j]))
+const existing = new Map([...before].map(([id, j]) => [id, j.name]))
+await store.putJudges(JUDGES.map((j) => ({ ...j, name: before.get(j.id)?.name ?? j.name, title: before.get(j.id)?.title ?? j.title, pinHash: hashPin(pins[j.id]) })))
 await store.putAdminPinHash(hashPin(adminPin))
 
 console.log('PINs (hand these out; they are not stored in plain text):')

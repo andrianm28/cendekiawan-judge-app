@@ -6,7 +6,7 @@ import { CRITERIA, isComplete, type PartialSheet } from '../../web/src/domain/sc
 import { normalizeRunOrder, type RunOrder } from '../../web/src/domain/runOrder'
 import { CATEGORIES, categoryOf, TEAMS, type CategoryId } from '../../web/src/domain/teams'
 import { categoryTies } from '../../web/src/domain/ties'
-import { signToken, verifyPin, type Session } from './auth'
+import { hashPin, signToken, verifyPin, type Session } from './auth'
 import type { Store, StoredScore } from './store'
 
 export class ApiError extends Error {
@@ -55,7 +55,7 @@ export class JudgingService {
         return {
           token: signToken({ role: 'judge', sub: j.id, exp }, this.secret),
           role: 'judge' as const,
-          judge: { id: j.id, group: j.group, name: j.name },
+          judge: { id: j.id, group: j.group, name: j.name, title: j.title ?? '' },
         }
       }
     }
@@ -75,9 +75,14 @@ export class JudgingService {
       this.store.getRunOrder(),
       this.store.getTieBreaks(),
     ])
-    const publicJudges = judges.map(({ id, group, name }) => ({ id, group, name }))
+    const publicJudges = judges.map(({ id, group, name, title }) => ({ id, group, name, title: title ?? '' }))
     const ties = categoryTies(scores, judges.length, picks)
-    const common = { closedGroups, runOrder: normalizeRunOrder(runOrder), serverTime: this.now().toISOString() }
+    const common = {
+      closedGroups,
+      runOrder: normalizeRunOrder(runOrder),
+      serverTime: this.now().toISOString(),
+      epoch: await this.store.getEpoch(),
+    }
     if (s.role === 'judge') {
       await this.store.touchPresence(s.sub, this.now().toISOString())
       const me = publicJudges.find((j) => j.id === s.sub)
@@ -148,18 +153,51 @@ export class JudgingService {
     return { closedGroups: await this.store.getClosedGroups() }
   }
 
-  async renameJudge(s: Session, judgeId: string, name: string) {
+  /**
+   * The operator edits a judge: name, role/organisation, the category they own (if another
+   * judge owns it, the two swap) and, optionally, a new PIN. PINs stay unique across all
+   * judges and the operator; only the hash is stored and the audit never holds the PIN.
+   */
+  async updateJudge(s: Session, judgeId: string, body: { name?: unknown; title?: unknown; group?: unknown; pin?: unknown }) {
     requireAdmin(s)
-    const clean = name.trim().slice(0, 60)
-    if (!clean) throw new ApiError(400, 'bad_name', 'Name is required')
     const judges = await this.store.getJudges()
     const j = judges.find((x) => x.id === judgeId)
     if (!j) throw new ApiError(404, 'not_found', 'Unknown judge')
-    const before = j.name
-    j.name = clean
+    const before = { name: j.name, title: j.title ?? '', group: j.group }
+
+    if (body.name !== undefined) {
+      const clean = String(body.name).trim().slice(0, 60)
+      if (!clean) throw new ApiError(400, 'bad_name', 'Name is required')
+      j.name = clean
+    }
+    if (body.title !== undefined) j.title = String(body.title).trim().slice(0, 80)
+    let swappedWith: string | undefined
+    if (body.group !== undefined && body.group !== j.group) {
+      const group = Number(body.group)
+      if (!Number.isInteger(group) || group < 1 || group > 5) throw new ApiError(400, 'bad_group', 'Category must be 1–5')
+      const other = judges.find((x) => x.id !== j.id && x.group === group)
+      if (other) {
+        other.group = j.group
+        swappedWith = other.id
+      }
+      j.group = group
+    }
+    const pinChanged = body.pin !== undefined && body.pin !== ''
+    if (pinChanged) {
+      const pin = String(body.pin)
+      if (!/^\d{6,8}$/.test(pin)) throw new ApiError(400, 'bad_pin', 'PIN must be 6 to 8 digits')
+      const admin = await this.store.getAdminPinHash()
+      const taken = judges.some((x) => x.id !== j.id && verifyPin(pin, x.pinHash)) || (admin !== undefined && verifyPin(pin, admin))
+      if (taken) throw new ApiError(409, 'pin_taken', 'That PIN is already used by someone else')
+      j.pinHash = hashPin(pin)
+    }
     await this.store.putJudges(judges)
-    await this.audit('rename_judge', { judgeId, before, after: clean })
-    return { id: j.id, group: j.group, name: j.name }
+    await this.audit('rename_judge', {
+      judgeId, before: before.name, after: j.name, title: j.title ?? '',
+      ...(before.group !== j.group ? { fromGroup: before.group, toGroup: j.group, swappedWith } : {}),
+      ...(pinChanged ? { pinChanged: true } : {}),
+    })
+    return { id: j.id, group: j.group, name: j.name, title: j.title ?? '' }
   }
 
   async putDeliberation(s: Session, d: Deliberation) {
@@ -208,6 +246,21 @@ export class JudgingService {
     await this.store.putTieBreak(category as CategoryId, pick)
     await this.audit('tie_pick', { category, teamId, tied: tie.tied.map((t) => t.teamId) }, pick.by)
     return pick
+  }
+
+  /**
+   * Wipe the event data after a rehearsal (UAT): scores, ties, closed categories, running
+   * order, deliberation and the change log. Judges, names and PINs stay. Tablets see the
+   * new epoch on their next sync and clear their local copies.
+   */
+  async resetEventData(s: Session, confirm: string) {
+    requireAdmin(s)
+    if (confirm !== 'RESET') throw new ApiError(400, 'confirm_required', 'Type RESET to confirm')
+    const counts = { scores: (await this.store.listScores()).length }
+    const epoch = this.now().toISOString()
+    await this.store.resetEventData(epoch)
+    await this.audit('reset', counts)
+    return { epoch, ...counts }
   }
 
   async listAudit(s: Session) {

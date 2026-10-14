@@ -13,7 +13,7 @@ npm run build
 ## Two modes
 
 - **Local (no `VITE_API_URL`)**: one device, pick a judge, scores stay in the browser (IndexedDB). This is also the fallback if the venue network fails.
-- **Connected (`VITE_API_URL` set)**: each judge logs in with a PIN on their own tablet. Every tap is saved on the tablet first and synced every few seconds, so a Wi-Fi drop loses nothing. Every judge scores all 20 teams. The operator PIN opens a board that runs the stage (running order, team on stage, pitch timer, which every tablet follows), shows each judge's sheets, closes categories, corrects scores with a logged reason, renames judges, shows the live leaderboard and runs deliberation. If a category's top finals end equal, the judge who owns that category picks the winner on their tablet.
+- **Connected (`VITE_API_URL` set)**: each judge logs in with a PIN on their own tablet. Every tap is saved on the tablet first and synced every few seconds, so a Wi-Fi drop loses nothing. Every judge scores all 20 teams. The operator PIN opens a board that runs the stage (running order, team on stage, pitch timer, which every tablet follows), shows each judge's sheets, closes categories, corrects scores with a logged reason, renames judges, shows the live leaderboard and runs deliberation. After a rehearsal (UAT), the operator's **Reset event data** (type RESET) wipes scores, ties, closed categories, running order, deliberation and the change log on the server and on every tablet; judges, names and PINs stay. If a category's top finals end equal, the judge who owns that category picks the winner on their tablet.
 
 ## Try it locally with the API
 

@@ -15,3 +15,4 @@
 - **Deliberation**: 12.05–12.35, where judges confirm or reorder the proposed ranks (with a logged reason) and lock the result.
 - **MC sheet**: awards in announcement order, Rising → Emerging → Rank 3 → 2 → 1.
 - **Operator**: committee member on the laptop who runs the stage (running order, team on stage, pitch timer), tracks every judge's sheets, closes categories and corrects scores.
+- **Reset**: after a rehearsal, the operator wipes all event data (scores, tie picks, closed categories, running order, deliberation, change log). Judges, names and PINs stay. A new **epoch** tells tablets to drop their local copies.

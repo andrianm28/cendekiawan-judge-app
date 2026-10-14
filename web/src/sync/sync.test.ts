@@ -13,6 +13,7 @@ function fakeServer() {
   const scores = new Map<string, ServerScore>()
   const closed = new Set<number>()
   let up = true
+  let epoch: string | null = null
   const api = {
     async saveScore(r: ServerScore) {
       if (!up) throw new TypeError('Failed to fetch')
@@ -26,10 +27,14 @@ function fakeServer() {
     async state(): Promise<ServerState> {
       if (!up) throw new TypeError('Failed to fetch')
       return { judges: [{ id: 'g1', group: 1, name: 'Mba Yashinta' }], closedGroups: [...closed], scores: [...scores.values()],
-        runOrder: DEFAULT_RUN_ORDER, serverTime: new Date().toISOString(), ties: [] }
+        runOrder: DEFAULT_RUN_ORDER, serverTime: new Date().toISOString(), ties: [], epoch }
     },
   }
-  return { api: api as unknown as Api, scores, closed, setUp: (v: boolean) => (up = v) }
+  const reset = () => {
+    scores.clear()
+    epoch = new Date().toISOString()
+  }
+  return { api: api as unknown as Api, scores, closed, reset, setUp: (v: boolean) => (up = v) }
 }
 
 describe('syncJudge', () => {
@@ -79,5 +84,25 @@ describe('syncJudge', () => {
     const r = await syncJudge(server.api, store, 'g1')
     expect(r).toMatchObject({ closedGroups: [1], waiting: 0 })
     expect((await store.get('g1', 't01'))?.sheet).toEqual({ d1: 3 })
+  })
+
+  it('drops rehearsal records, even unsent ones, when the operator resets', async () => {
+    const store = await fresh()
+    const server = fakeServer()
+    await store.save('g1', 't01', { sheet: { d1: 3 } })
+    await syncJudge(server.api, store, 'g1')
+    server.setUp(false)
+    await store.save('g1', 't02', { sheet: { d1: 2 } })
+    await syncJudge(server.api, store, 'g1')
+    server.reset()
+    server.setUp(true)
+    const r = await syncJudge(server.api, store, 'g1')
+    expect(r.reset).toBe(true)
+    expect(await store.listAll()).toEqual([])
+    expect(server.scores.size).toBe(0)
+    // Scoring after the reset works as normal and is not dropped again.
+    await store.save('g1', 't01', { sheet: { d1: 4 } })
+    expect((await syncJudge(server.api, store, 'g1')).reset).toBe(false)
+    expect(server.scores.get('t01')?.sheet).toEqual({ d1: 4 })
   })
 })

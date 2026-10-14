@@ -1,5 +1,5 @@
-// Live-demo rubric for the Grand Final: the ToT UM rubric with the same weights and
-// 1–4 scale; descriptors reworded from "PartyRock app / video" to "pitch / live demo".
+// Live-demo rubric for the Grand Final: the ToT UM rubric with the same criteria,
+// weights and 1–4 scale, in plain words for executive judges who may not be technical.
 
 import type { CriterionKey, Level } from './scoring'
 
@@ -8,99 +8,110 @@ export interface Criterion {
   code: string
   name: string
   weight: string
+  /** The criterion as one plain question, for judges without a technical background. */
+  question: string
   levels: Record<Level, string>
 }
 
 export const LEVEL_NAMES: Record<Level, string> = {
-  1: 'Weak',
-  2: 'Acceptable',
-  3: 'Strong',
-  4: 'Exceptional',
+  1: 'Poor',
+  2: 'Fair',
+  3: 'Good',
+  4: 'Excellent',
 }
 
 export const SOLUTION: Criterion[] = [
   {
-    key: 'd1', code: 'D1', name: 'Problem Relevance & Impact', weight: '20%',
+    key: 'd1', code: 'D1', name: 'Real problem', weight: '20%',
+    question: 'Does it solve a real problem for real people?',
     levels: {
-      1: 'No real problem named; generic "AI helps with X" framing',
-      2: 'A problem is named, but no specific user or setting',
-      3: 'Specific user and setting; the pain is evident from the app',
-      4: 'Named user segment + measurable gap + why it matters now',
+      1: 'No clear problem',
+      2: 'A problem, but unclear who has it',
+      3: 'Clear problem and clear users',
+      4: 'Clear, important, and urgent problem',
     },
   },
   {
-    key: 'd2', code: 'D2', name: 'Functionality & UX', weight: '20%',
+    key: 'd2', code: 'D2', name: 'Works well', weight: '20%',
+    question: 'Does the app work and make sense to use?',
     levels: {
-      1: 'Does not run, or output unrelated to what was asked',
-      2: 'Runs, but output is inconsistent or the flow confuses',
-      3: 'Bedrock app runs reliably; flow is logical end to end',
-      4: 'Runs reliably and needs no explanation at all to use',
+      1: 'Did not work',
+      2: 'Worked, but with problems',
+      3: 'Worked smoothly from start to end',
+      4: 'Worked perfectly and felt polished',
     },
   },
   {
-    key: 'd3', code: 'D3', name: 'Creativity & Innovation', weight: '20%',
+    key: 'd3', code: 'D3', name: 'Fresh idea', weight: '20%',
+    question: 'How new or creative is the idea?',
     levels: {
-      1: 'A tutorial or template with the names changed',
-      2: 'Common pattern (chatbot, summariser) done competently',
-      3: 'A familiar pattern applied to an unexpected domain',
-      4: 'Framing or combination not seen elsewhere in the cohort',
+      1: 'Copied or very basic',
+      2: 'Common idea, done fine',
+      3: 'Common idea used in a smart new way',
+      4: 'Truly original; I have not seen this before',
     },
   },
   {
-    key: 'd4', code: 'D4', name: 'Real-World Application', weight: '20%',
+    key: 'd4', code: 'D4', name: 'Usable in real life', weight: '20%',
+    question: 'Could people really use this outside the competition?',
     levels: {
-      1: 'Classroom exercise only; no plausible user outside it',
-      2: 'Would serve one class or one small group',
-      3: 'Usable by a real institution or community as built',
-      4: 'Clear path to sector, state, or national scale',
+      1: 'Only a school exercise',
+      2: 'Useful for a small group',
+      3: 'Ready for a real organisation or community',
+      4: 'Could grow to a whole sector or the country',
     },
   },
   {
-    key: 'd5', code: 'D5', name: 'Presentation (pitch)', weight: '20%',
+    key: 'd5', code: 'D5', name: 'Clear pitch', weight: '20%',
+    question: 'Did the team explain it clearly?',
     levels: {
-      1: 'No clear message; problem and solution not stated',
-      2: 'Says what it does, not who it is for or why',
-      3: 'Problem, user and solution all stated clearly',
-      4: 'Adds evidence: data, a quote, or a named context',
+      1: 'Hard to follow',
+      2: 'Said what it does, not why',
+      3: 'Clear problem, users and solution',
+      4: 'Clear and convincing, with facts or examples',
     },
   },
 ]
 
 export const DEMO: Criterion[] = [
   {
-    key: 'v1', code: 'V1', name: 'Real-World Impact', weight: '35%',
+    key: 'v1', code: 'V1', name: 'Impact shown', weight: '35%',
+    question: 'Did the demo show how it helps real people?',
     levels: {
-      1: 'Features are shown; no user and no situation',
-      2: 'A use case is described but never demonstrated',
-      3: 'A real scenario is walked through live',
-      4: 'Scenario shown, plus who benefits and by how much',
+      1: 'Only features, no real situation',
+      2: 'Talked about a use, did not show it',
+      3: 'Showed a real situation step by step',
+      4: 'Showed it, plus who benefits and how much',
     },
   },
   {
-    key: 'v2', code: 'V2', name: 'Ease of Use', weight: '25%',
+    key: 'v2', code: 'V2', name: 'Easy to use', weight: '25%',
+    question: 'Could a new user use it without help?',
     levels: {
-      1: 'Cannot tell from the demo how the app is operated',
-      2: 'Operation is shown but needs narration to follow',
-      3: 'A first-time user could repeat what is shown',
-      4: 'Obvious without narration; no instruction needed',
+      1: 'Could not tell how to use it',
+      2: 'Needed a lot of explaining',
+      3: 'A new user could follow it',
+      4: 'So simple it needs no explaining',
     },
   },
   {
-    key: 'v3', code: 'V3', name: 'Reliability', weight: '20%',
+    key: 'v3', code: 'V3', name: 'Reliable', weight: '20%',
+    question: 'Did it give good answers every time?',
     levels: {
-      1: 'No output shown, or the output visibly fails',
-      2: 'One successful run; no variation attempted',
-      3: 'Several inputs shown producing sensible output',
-      4: 'An awkward or edge input is shown and handled well',
+      1: 'Failed or gave no result',
+      2: 'Worked once only',
+      3: 'Worked well several times',
+      4: 'Also handled a tricky question well',
     },
   },
   {
-    key: 'v4', code: 'V4', name: 'Scalability', weight: '20%',
+    key: 'v4', code: 'V4', name: 'Can grow', weight: '20%',
+    question: 'Could it serve many more people?',
     levels: {
-      1: 'No mention of any use beyond the demo itself',
-      2: 'Claims it "could scale" with no reasoning given',
-      3: 'Names who else would use it and what would change',
-      4: 'Addresses cost, data, or volume (e.g. AWS architecture) concretely',
+      1: 'Not mentioned',
+      2: 'Said it can grow, no reason given',
+      3: 'Named who else would use it',
+      4: 'Clear plan to grow (cost, data, users)',
     },
   },
 ]
