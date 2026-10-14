@@ -3,9 +3,25 @@ import { hashPin } from './auth'
 import { makeHandler } from './handler'
 import { ApiError, JudgingService } from './service'
 import { memoryStore } from './store'
+import { CATEGORIES, TEAMS } from '../../web/src/domain/teams'
 
 const SECRET = 'test-secret-test-secret-test-secret'
 const FULL = { d1: 3, d2: 3, d3: 3, d4: 4, d5: 2, v1: 4, v2: 3, v3: 3, v4: 2 } as const
+const PLAIN = { d1: 2, d2: 2, d3: 2, d4: 2, d5: 2, v1: 2, v2: 2, v3: 2, v4: 2 } as const
+
+/**
+ * Both judges submit every team: the first team of each category gets FULL, the rest
+ * PLAIN unless `overrides` says otherwise. Returns the category winners' ids.
+ */
+async function scoreEveryTeam(handler: ReturnType<typeof makeHandler>, overrides: Record<string, object> = {}) {
+  const tokens = [(await call(handler, 'POST', '/login', { pin: '1111' })).body.token, (await call(handler, 'POST', '/login', { pin: '2222' })).body.token]
+  const firsts = CATEGORIES.map((c) => TEAMS.find((t) => t.category === c.id)!.id)
+  for (const t of TEAMS) {
+    const sheet = overrides[t.id] ?? (firsts.includes(t.id) ? FULL : PLAIN)
+    for (const tok of tokens) await call(handler, 'PUT', `/scores/${t.id}`, { sheet, note: '', status: 'submitted', version: 1 }, tok)
+  }
+  return firsts
+}
 
 async function setup() {
   const store = memoryStore()
@@ -97,11 +113,11 @@ describe('saving scores', () => {
   })
 
   it('freezes every score once the result is locked, for judges and the operator', async () => {
-    const { handler } = await setup()
+    const { handler, store } = await setup()
     const g1 = (await call(handler, 'POST', '/login', { pin: '1111' })).body.token
     const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
     await call(handler, 'PUT', '/scores/t01', { sheet: FULL, note: '', status: 'submitted', version: 1 }, g1)
-    await call(handler, 'PUT', '/admin/deliberation', { order: [], log: [], lockedAt: 'now' }, admin)
+    await store.putDeliberation({ order: [], log: [], lockedAt: 'now' })
     expect((await call(handler, 'PUT', '/scores/t01', { sheet: { ...FULL, d1: 1 }, note: '', status: 'submitted', version: 2 }, g1)).status).toBe(423)
     expect((await call(handler, 'PUT', '/scores/t09', { sheet: FULL, note: '', status: 'submitted', version: 1 }, g1)).status).toBe(423)
     expect((await call(handler, 'PUT', '/admin/scores/g1/t01', { sheet: { ...FULL, d1: 1 }, note: '', status: 'submitted', reason: 'late' }, admin)).status).toBe(423)
@@ -169,11 +185,11 @@ describe('ties', () => {
   })
 
   it('lets the operator record the pick, and refuses after the result is locked', async () => {
-    const { handler, g1, g2, admin, put } = await tiedEducation()
+    const { handler, store, g1, g2, admin, put } = await tiedEducation()
     await put(g1, 't04', LOW)
     await put(g2, 't04', LOW)
     expect((await call(handler, 'PUT', '/ties/education', { teamId: 't02' }, admin)).body.by).toBe('admin')
-    await call(handler, 'PUT', '/admin/deliberation', { order: [], log: [], lockedAt: 'now' }, admin)
+    await store.putDeliberation({ order: [], log: [], lockedAt: 'now' })
     expect((await call(handler, 'PUT', '/ties/education', { teamId: 't01' }, g1)).status).toBe(423)
     const audit = (await call(handler, 'GET', '/admin/audit', undefined, admin)).body
     expect(audit.find((a: { action: string }) => a.action === 'tie_pick').actor).toBe('admin')
@@ -238,7 +254,8 @@ describe('admin', () => {
     const { handler } = await setup()
     const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
     expect((await call(handler, 'PUT', '/admin/judges/g2', { name: 'Dr. Example', title: 'Head of Cloud, AWS' }, admin)).body.title).toBe('Head of Cloud, AWS')
-    const d = { order: ['t17'], log: [{ at: 'x', teamId: 't17', from: 2, to: 1, reason: 'demo' }], lockedAt: null }
+    const winners = await scoreEveryTeam(handler)
+    const d = { order: winners, log: [{ at: 'x', teamId: winners[0], from: 2, to: 1, reason: 'demo' }], lockedAt: null }
     expect((await call(handler, 'PUT', '/admin/deliberation', d, admin)).status).toBe(200)
     expect((await call(handler, 'PUT', '/admin/deliberation', { ...d, lockedAt: 'now' }, admin)).status).toBe(200)
     expect((await call(handler, 'PUT', '/admin/deliberation', d, admin)).status).toBe(423)
@@ -246,6 +263,34 @@ describe('admin', () => {
     expect(state.deliberation.lockedAt).toBe('now')
     expect(state.judges.find((j: { id: string }) => j.id === 'g2')).toEqual({ id: 'g2', group: 2, name: 'Dr. Example', title: 'Head of Cloud, AWS' })
     expect(JSON.stringify(state)).not.toContain('pinHash')
+  })
+
+  it('refuses to lock until every sheet is in, every category tie is picked, and the order fits the winners', async () => {
+    const { handler } = await setup()
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    const g1 = (await call(handler, 'POST', '/login', { pin: '1111' })).body.token
+    const lockWith = (order: string[]) => call(handler, 'PUT', '/admin/deliberation', { order, log: [], lockedAt: 'now' }, admin)
+    await call(handler, 'PUT', '/scores/t01', { sheet: FULL, note: '', status: 'submitted', version: 1 }, g1)
+    expect((await lockWith([])).body.code).toBe('not_all_in')
+
+    // Every team scored, but t01 and t02 end equal at the top of Smart Education.
+    const winners = await scoreEveryTeam(handler, { t02: FULL })
+    expect((await lockWith(winners)).body.code).toBe('tie_open')
+    expect((await call(handler, 'PUT', '/ties/education', { teamId: 't02' }, g1)).status).toBe(200)
+    const after = winners.map((id) => (id === 't01' ? 't02' : id))
+    expect((await lockWith(winners)).body.code).toBe('stale')
+    expect((await lockWith(after)).status).toBe(200)
+  })
+
+  it('lets the operator enter a paper sheet the tablet never saved', async () => {
+    const { handler } = await setup()
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    const body = { sheet: FULL, note: 'from paper', status: 'submitted', reason: 'Tablet failed, paper backup' }
+    const r = await call(handler, 'PUT', '/admin/scores/g2/t07', body, admin)
+    expect(r.status).toBe(200)
+    expect(r.body).toMatchObject({ judgeId: 'g2', teamId: 't07', status: 'submitted', version: 1 })
+    expect((await call(handler, 'PUT', '/admin/scores/g9/t07', body, admin)).status).toBe(404)
+    expect((await call(handler, 'PUT', '/admin/scores/g2/t99', body, admin)).status).toBe(404)
   })
 
   it('throws typed errors from the service', async () => {

@@ -2,7 +2,7 @@
 // scores in hand right now. Submitted sheets always count; complete drafts count
 // only when asked, and the row is then marked provisional.
 
-import { compareResults, proposeRanks, rankCategory, type ProposedRank, type TeamResult } from './ranking'
+import { compareResults, proposeRanks, sameFinal, rankCategory, type ProposedRank, type TeamResult } from './ranking'
 import { c1, c2, isComplete, type ScoreSheet } from './scoring'
 import { CATEGORIES, TEAMS, type CategoryId, type Team } from './teams'
 import type { TieBreaks } from './ties'
@@ -18,7 +18,7 @@ export interface LeaderRow {
   result: TeamResult
   overallRank: number
   categoryRank: number
-  /** Cannot be separated from the row above by final, D1 or D4. */
+  /** Same final as the row above. */
   tiedWithAbove: boolean
   c1: number
   c2: number
@@ -78,7 +78,7 @@ export function buildLeaderboard(
   const sorted = standings.flatMap((s) => s.ranked).sort((a, b) => compareResults(a, b) || a.team.order - b.team.order)
   const rows: LeaderRow[] = []
   sorted.forEach((result, i) => {
-    const tied = i > 0 && compareResults(sorted[i - 1], result) === 0
+    const tied = i > 0 && sameFinal(sorted[i - 1], result)
     const sheets = sheetsByTeam.get(result.team.id)!
     rows.push({
       result,

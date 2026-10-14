@@ -237,7 +237,7 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
                               const label = !r ? '–' : r.status === 'submitted' && isComplete(r.sheet) ? String(finalScore(r.sheet)) : 'draft'
                               return (
                                 <td key={j.id} className="num">
-                                  <button className={`cell ${!r ? 'empty' : r.status}`} disabled={!r} title={r ? `Correct ${j.name}'s score` : 'Not scored yet'}
+                                  <button className={`cell ${!r ? 'empty' : r.status}`} title={r ? `Correct ${j.name}'s score` : `Enter ${j.name}'s paper sheet`}
                                     onClick={() => setView({ kind: 'correct', judge: j, team: t })}>{label}</button>
                                 </td>
                               )

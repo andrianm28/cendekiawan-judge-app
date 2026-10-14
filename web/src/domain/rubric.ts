@@ -28,24 +28,24 @@ export const SOLUTION: Criterion[] = [
       1: 'No clear problem',
       2: 'A problem, but unclear who has it',
       3: 'Clear problem and clear users',
-      4: 'Clear, important, and urgent problem',
+      4: 'Clear users, facts on how big the problem is, and why now',
     },
   },
   {
     key: 'd2', code: 'D2', name: 'Works well', weight: '20%',
-    question: 'Does the app work and make sense to use?',
+    question: 'Does the app work live on AWS (with Amazon Bedrock) and make sense to use?',
     levels: {
       1: 'Did not work',
       2: 'Worked, but with problems',
       3: 'Worked smoothly from start to end',
-      4: 'Worked perfectly and felt polished',
+      4: 'Worked smoothly and felt like a finished product',
     },
   },
   {
     key: 'd3', code: 'D3', name: 'Fresh idea', weight: '20%',
     question: 'How new or creative is the idea?',
     levels: {
-      1: 'Copied or very basic',
+      1: 'A tutorial or template, barely changed',
       2: 'Common idea, done fine',
       3: 'Common idea used in a smart new way',
       4: 'Truly original; I have not seen this before',
@@ -89,19 +89,19 @@ export const DEMO: Criterion[] = [
     question: 'Could a new user use it without help?',
     levels: {
       1: 'Could not tell how to use it',
-      2: 'Needed a lot of explaining',
+      2: 'Could follow it only because the presenter explained',
       3: 'A new user could follow it',
       4: 'So simple it needs no explaining',
     },
   },
   {
     key: 'v3', code: 'V3', name: 'Reliable', weight: '20%',
-    question: 'Did it give good answers every time?',
+    question: 'Did it work well each time they tried it?',
     levels: {
       1: 'Failed or gave no result',
-      2: 'Worked once only',
-      3: 'Worked well several times',
-      4: 'Also handled a tricky question well',
+      2: 'Worked, but they only tried it once',
+      3: 'Tried with different inputs, all good answers',
+      4: 'Also handled a tricky or unusual input well',
     },
   },
   {
@@ -111,7 +111,7 @@ export const DEMO: Criterion[] = [
       1: 'Not mentioned',
       2: 'Said it can grow, no reason given',
       3: 'Named who else would use it',
-      4: 'Clear plan to grow (cost, data, users)',
+      4: 'Clear plan to grow on AWS (cost, data, users)',
     },
   },
 ]

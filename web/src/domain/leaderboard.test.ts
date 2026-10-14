@@ -43,6 +43,14 @@ describe('buildLeaderboard', () => {
     expect(b.rows[2].tiedWithAbove).toBe(true)
   })
 
+  it('shares a rank on an equal final, whatever D1 says', () => {
+    const b = buildLeaderboard([rec('t01', S77), rec('t05', sheet([4, 3, 3, 3, 2], [4, 3, 3, 2]))], { includeDrafts: false })
+    expect(b.rows.map((r) => [r.result.team.id, r.overallRank, r.tiedWithAbove])).toEqual([
+      ['t05', 1, false],
+      ['t01', 1, true],
+    ])
+  })
+
   it('reports who moved since the last board', () => {
     const before = buildLeaderboard([rec('t01', S84), rec('t02', S59)], { includeDrafts: false })
     const after = buildLeaderboard([rec('t01', S84), rec('t02', S59), rec('t05', S77)], { includeDrafts: false })
