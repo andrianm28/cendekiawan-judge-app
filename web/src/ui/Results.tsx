@@ -4,24 +4,46 @@ import { resultsCsv, scoresCsv } from '../domain/exportCsv'
 import { announcementOrder, proposeRanks, rankCategory } from '../domain/ranking'
 import { isComplete, type ScoreSheet } from '../domain/scoring'
 import { CATEGORIES, categoryOf, TEAMS } from '../domain/teams'
-import { JUDGES } from '../judges'
+import { JUDGES, type Judge } from '../judges'
 import type { ScoreRecord } from '../storage/scoreStore'
 import { download } from './download'
 import { Header } from './Header'
 import { getStore } from './useScores'
 
 /** Deliberation view: category standings, Rank 1–5 the judges can reorder and lock, and the MC sheet. */
-export function Results({ records, onBack }: { records: ScoreRecord[]; onBack: () => void }) {
+export interface DeliberationIO {
+  load: () => Promise<Deliberation>
+  save: (d: Deliberation) => Promise<void>
+}
+
+const localDeliberation: DeliberationIO = {
+  load: async () => (await getStore()).getDeliberation(),
+  save: async (d) => (await getStore()).saveDeliberation(d),
+}
+
+export function Results({ records, onBack, io = localDeliberation, judges = JUDGES }: {
+  records: ScoreRecord[]
+  judges?: Judge[]
+  onBack: () => void
+  /** Where the order and lock are kept: this tablet by default, the server for the operator. */
+  io?: DeliberationIO
+}) {
   const [delib, setDelib] = useState<Deliberation>(EMPTY_DELIBERATION)
   const [pending, setPending] = useState<{ from: number; to: number } | null>(null)
   const [reason, setReason] = useState('')
 
   useEffect(() => {
-    void getStore().then((s) => s.getDeliberation()).then(setDelib)
-  }, [])
+    void io.load().then(setDelib)
+  }, [io])
   const persist = async (d: Deliberation) => {
+    const before = delib
     setDelib(d)
-    await (await getStore()).saveDeliberation(d)
+    try {
+      await io.save(d)
+    } catch (e) {
+      setDelib(before)
+      window.alert(`Not saved: ${e instanceof Error ? e.message : e}`)
+    }
   }
 
   const sheetsByTeam = new Map<string, ScoreSheet[]>()
@@ -44,7 +66,7 @@ export function Results({ records, onBack }: { records: ScoreRecord[]; onBack: (
   const exportScores = () =>
     download('cendekiawan-scores.csv', scoresCsv(records.map((r) => ({
       team: TEAMS.find((t) => t.id === r.teamId)!,
-      judgeName: JUDGES.find((j) => j.id === r.judgeId)?.name ?? r.judgeId,
+      judgeName: judges.find((j) => j.id === r.judgeId)?.name ?? r.judgeId,
       sheet: r.sheet, note: r.note, status: r.status, updatedAt: r.updatedAt,
     }))))
 

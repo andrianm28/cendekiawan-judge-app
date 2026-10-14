@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { finalScore, isComplete } from '../domain/scoring'
 import { categoryOf, teamsIn, type CategoryId, type Team } from '../domain/teams'
 import type { Judge } from '../judges'
@@ -10,9 +11,11 @@ interface Props {
   records: ScoreRecord[]
   onOpen: (team: Team) => void
   onLogout: () => void
+  /** Sync chip shown next to the judge's name when the app talks to the server. */
+  status?: ReactNode
 }
 
-export function TeamList({ judge, category, records, onOpen, onLogout }: Props) {
+export function TeamList({ judge, category, records, onOpen, onLogout, status }: Props) {
   const cat = categoryOf(category)
   return (
     <div className="screen">
@@ -28,6 +31,7 @@ export function TeamList({ judge, category, records, onOpen, onLogout }: Props) 
           <strong>{judge.name}</strong>
           <span className="sub">4 teams · up to 5 minutes each</span>
         </div>
+        {status}
         <button className="link" onClick={onLogout}>Log out</button>
       </Header>
       <ul className="teams">
