@@ -328,3 +328,15 @@ span.timer { display: inline-flex; align-items: center; }
 .stage-bottom { display: flex; justify-content: space-between; align-items: center; padding: 2.5vh 4vw; font-size: 2.8vh; border-top: 1px solid rgb(255 255 255 / 0.15); background: rgb(0 0 0 / 0.25); min-height: 4vh; }
 .stage-next-label { color: var(--orange, #ff9900); font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-right: 1vw; }
 .stage-offline { opacity: 0.6; font-size: 2vh; }
+
+/* Running order: drag and drop */
+.run-list { list-style: none; margin: 8px 0 0; padding: 0; user-select: none; }
+.run-list li { display: flex; align-items: center; gap: 10px; padding: 6px 4px; border-top: 1px solid var(--border); background: #fff; }
+.run-list li .run-name { flex: 1; }
+.run-list li.live { font-weight: 700; }
+.run-list li.live .run-name::before { content: '● '; color: var(--ok); }
+.run-list li.dragging { background: #fff7e6; box-shadow: 0 4px 14px rgb(12 19 40 / 0.18); border-radius: 8px; position: relative; z-index: 1; }
+.run-list.is-dragging { cursor: grabbing; }
+.run-pos { width: 2ch; text-align: right; color: var(--muted, #6b7280); font-variant-numeric: tabular-nums; }
+.drag-handle { touch-action: none; cursor: grab; border: 1px solid var(--border); background: #f4f6fa; border-radius: 6px; min-width: 36px; min-height: 36px; font-size: 1.1rem; line-height: 1; color: #4b5563; }
+.drag-handle:active { cursor: grabbing; }

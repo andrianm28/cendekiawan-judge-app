@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EMPTY_DELIBERATION } from '../domain/deliberation'
-import { DEFAULT_RUN_ORDER, moveInOrder, stepCurrent } from '../domain/runOrder'
+import { DEFAULT_RUN_ORDER, stepCurrent } from '../domain/runOrder'
 import { averagedFinal, finalScore, isComplete, type PartialSheet, type ScoreSheet } from '../domain/scoring'
 import { CATEGORIES, categoryOf, TEAMS, type Team } from '../domain/teams'
 import type { TieSummary } from '../domain/ties'
@@ -12,6 +12,7 @@ import { JudgeAvatar, JudgeBadge } from './JudgeBadge'
 import { Leaderboard } from './Leaderboard'
 import { PrintSheets } from './PrintSheets'
 import { Results, type DeliberationIO } from './Results'
+import { RunOrderList } from './RunOrderList'
 import { ScoreForm } from './ScoreForm'
 import { TiePick } from './TiePick'
 import { Timer } from './Timer'
@@ -158,22 +159,14 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
             <p className="muted small">Judges' tablets open the team on stage and show this timer. Judges only score. <strong>Stage screen ↗</strong> opens the projector view (team, timer, up next; no scores): drag it to the projector and double-click for full screen.</p>
             <details className="run-order">
               <summary>Running order</summary>
-              <ol>
-                {run.order.map((id, i) => {
-                  const t = TEAMS.find((x) => x.id === id)!
-                  const done = judges.filter((j) => sheetOf(j.id, id)?.status === 'submitted').length
-                  return (
-                    <li key={id} className={id === run.current ? 'live' : undefined}>
-                      <span className="run-name"><strong>{t.appName}</strong> <span className="muted small">{categoryOf(t.category).name} · {done}/{judges.length} scored</span></span>
-                      <span className="moves">
-                        <button className="small-btn" aria-label="Move up" disabled={i === 0} onClick={() => void setRun({ order: moveInOrder(run, id, -1).order })}>▲</button>
-                        <button className="small-btn" aria-label="Move down" disabled={i === run.order.length - 1} onClick={() => void setRun({ order: moveInOrder(run, id, 1).order })}>▼</button>
-                        <button className="secondary" disabled={id === run.current} onClick={() => void setRun({ current: id })}>On stage</button>
-                      </span>
-                    </li>
-                  )
-                })}
-              </ol>
+              <p className="muted small">Drag ⠿ to change the order. Judges' tablets follow it.</p>
+              <RunOrderList
+                run={run}
+                judges={judges.length}
+                scored={(id) => judges.filter((j) => sheetOf(j.id, id)?.status === 'submitted').length}
+                onReorder={(order) => void setRun({ order })}
+                onStage={(id) => void setRun({ current: id })}
+              />
             </details>
           </section>
 

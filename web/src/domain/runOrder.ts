@@ -33,6 +33,17 @@ export function moveInOrder(r: RunOrder, teamId: string, delta: number): RunOrde
   return { ...r, order }
 }
 
+/** Move a team to a new position (drag and drop); other teams keep their relative order. */
+export function moveTo(r: RunOrder, teamId: string, toIndex: number): RunOrder {
+  const from = r.order.indexOf(teamId)
+  if (from < 0) return r
+  const to = Math.max(0, Math.min(r.order.length - 1, toIndex))
+  if (to === from) return r
+  const order = r.order.filter((id) => id !== teamId)
+  order.splice(to, 0, teamId)
+  return { ...r, order }
+}
+
 /** The team after (or before) the one presenting now; starts at the first team. */
 export function stepCurrent(r: RunOrder, delta: 1 | -1): RunOrder {
   const i = r.current ? r.order.indexOf(r.current) : -1
