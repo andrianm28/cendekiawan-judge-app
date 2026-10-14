@@ -14,10 +14,11 @@ function fakeServer() {
   const closed = new Set<number>()
   let up = true
   let epoch: string | null = null
+  let lockedAt: string | null = null
   const api = {
     async saveScore(r: ServerScore) {
       if (!up) throw new TypeError('Failed to fetch')
-      if (closed.has(1)) throw new ApiError(423, 'group_closed', 'closed')
+      if (closed.has(1) || lockedAt) throw new ApiError(423, closed.has(1) ? 'group_closed' : 'locked', 'closed')
       const cur = scores.get(r.teamId)
       if (cur && r.version <= cur.version) throw new ApiError(409, 'stale', 'stale', cur)
       const saved = { judgeId: 'g1', teamId: r.teamId, sheet: r.sheet, note: r.note, status: r.status, version: r.version, updatedAt: 'now' }
@@ -27,14 +28,14 @@ function fakeServer() {
     async state(): Promise<ServerState> {
       if (!up) throw new TypeError('Failed to fetch')
       return { judges: [{ id: 'g1', group: 1, name: 'Mba Yashinta' }], closedGroups: [...closed], scores: [...scores.values()],
-        runOrder: DEFAULT_RUN_ORDER, serverTime: new Date().toISOString(), ties: [], epoch }
+        runOrder: DEFAULT_RUN_ORDER, serverTime: new Date().toISOString(), ties: [], epoch, locked: !!lockedAt }
     },
   }
   const reset = () => {
     scores.clear()
     epoch = new Date().toISOString()
   }
-  return { api: api as unknown as Api, scores, closed, reset, setUp: (v: boolean) => (up = v) }
+  return { api: api as unknown as Api, scores, closed, reset, setUp: (v: boolean) => (up = v), lock: () => (lockedAt = 'now') }
 }
 
 describe('syncJudge', () => {
@@ -84,6 +85,18 @@ describe('syncJudge', () => {
     const r = await syncJudge(server.api, store, 'g1')
     expect(r).toMatchObject({ closedGroups: [1], waiting: 0 })
     expect((await store.get('g1', 't01'))?.sheet).toEqual({ d1: 3 })
+  })
+
+  it('treats every category as closed once the result is locked', async () => {
+    const store = await fresh()
+    const server = fakeServer()
+    await store.save('g1', 't05', { sheet: { d1: 3 } })
+    await syncJudge(server.api, store, 'g1')
+    server.lock()
+    await store.save('g1', 't05', { sheet: { d1: 1 } })
+    const r = await syncJudge(server.api, store, 'g1')
+    expect(r).toMatchObject({ closedGroups: [1, 2, 3, 4, 5], waiting: 0 })
+    expect((await store.get('g1', 't05'))?.sheet).toEqual({ d1: 3 })
   })
 
   it('drops rehearsal records, even unsent ones, when the operator resets', async () => {

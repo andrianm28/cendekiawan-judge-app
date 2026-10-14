@@ -95,6 +95,20 @@ describe('saving scores', () => {
     expect(audit.map((a: { action: string }) => a.action)).toEqual(['close_group', 'correct_score'])
     expect(audit[1].detail.reason).toBe('Judge asked to fix D5')
   })
+
+  it('freezes every score once the result is locked, for judges and the operator', async () => {
+    const { handler } = await setup()
+    const g1 = (await call(handler, 'POST', '/login', { pin: '1111' })).body.token
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    await call(handler, 'PUT', '/scores/t01', { sheet: FULL, note: '', status: 'submitted', version: 1 }, g1)
+    await call(handler, 'PUT', '/admin/deliberation', { order: [], log: [], lockedAt: 'now' }, admin)
+    expect((await call(handler, 'PUT', '/scores/t01', { sheet: { ...FULL, d1: 1 }, note: '', status: 'submitted', version: 2 }, g1)).status).toBe(423)
+    expect((await call(handler, 'PUT', '/scores/t09', { sheet: FULL, note: '', status: 'submitted', version: 1 }, g1)).status).toBe(423)
+    expect((await call(handler, 'PUT', '/admin/scores/g1/t01', { sheet: { ...FULL, d1: 1 }, note: '', status: 'submitted', reason: 'late' }, admin)).status).toBe(423)
+    const state = (await call(handler, 'GET', '/state', undefined, admin)).body
+    expect(state.scores[0].sheet).toEqual(FULL)
+    expect((await call(handler, 'GET', '/state', undefined, g1)).body.locked).toBe(true)
+  })
 })
 
 describe('running order and pitch timer', () => {

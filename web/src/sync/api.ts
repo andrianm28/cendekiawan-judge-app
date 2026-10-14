@@ -40,6 +40,8 @@ export interface ServerState {
   tieBreaks?: TieBreaks
   presence?: Record<string, string>
   deliberation?: Deliberation | null
+  /** The result is locked: every score is frozen. */
+  locked?: boolean
 }
 
 export class ApiError extends Error {

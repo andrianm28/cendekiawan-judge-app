@@ -2,7 +2,7 @@
 // server's view (closed groups, operator corrections). Taps are always saved on the
 // tablet first, so a failed round just leaves records waiting for the next one.
 
-import { categoryOf, TEAMS } from '../domain/teams'
+import { CATEGORIES, categoryOf, TEAMS } from '../domain/teams'
 import type { RunOrder } from '../domain/runOrder'
 import type { TieSummary } from '../domain/ties'
 import type { Judge } from '../judges'
@@ -38,7 +38,8 @@ export async function syncJudge(api: Api, store: ScoreStore, judgeId: string): P
     const reset = epoch !== (await store.getEpoch())
     if (reset) await store.resetTo(epoch)
 
-    closedGroups = state.closedGroups
+    // A locked result freezes every category, so the tablet treats them all as closed.
+    closedGroups = state.locked ? CATEGORIES.map((c) => c.group) : state.closedGroups
     for (const r of (await store.listForJudge(judgeId)).filter((x) => !x.synced)) {
       try {
         await api.saveScore(r)
