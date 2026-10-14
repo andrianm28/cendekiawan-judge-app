@@ -4,6 +4,7 @@ import { JUDGES, type Judge } from './judges'
 import { Results } from './ui/Results'
 import { ScoreForm } from './ui/ScoreForm'
 import { TeamList } from './ui/TeamList'
+import { Header } from './ui/Header'
 import { useScores } from './ui/useScores'
 
 type View = { kind: 'home' } | { kind: 'teams'; judge: Judge } | { kind: 'score'; judge: Judge; team: Team } | { kind: 'results' }
@@ -39,23 +40,33 @@ export default function App() {
 
   return (
     <div className="screen">
-      <header className="bar"><div className="bar-title"><strong>CendekiAwan Grand Final Judging</strong></div></header>
-      <section className="card">
-        <h2>Judges</h2>
-        <ul className="teams">
-          {JUDGES.map((j) => (
+      <Header
+        hero={
+          <div className="hero">
+            <span className="eyebrow">Grand Finale of AWS CendekiAwan Bedrock AI Solution</span>
+            <h1>Judging</h1>
+            <span className="sub">Universiti Malaya · Tuesday, 20 October 2026</span>
+          </div>
+        }
+      />
+      <h2 className="section-title">Choose your group</h2>
+      <ul className="groups">
+        {JUDGES.map((j) => {
+          const cat = CATEGORIES[j.group - 1]
+          return (
             <li key={j.id}>
-              <button className="team" onClick={() => setView({ kind: 'teams', judge: j })}>
-                <span className="order">{j.group}</span>
-                <span className="team-name">
-                  <strong>{j.name}</strong>
-                  <span className="muted">{CATEGORIES[j.group - 1].name}</span>
+              <button className="group-card" onClick={() => setView({ kind: 'teams', judge: j })}>
+                <span className="group-kv" style={{ backgroundImage: `url(/brand/kv-${cat.id}.jpg)` }} />
+                <span className="group-text">
+                  <span className="eyebrow">Group {j.group}</span>
+                  <strong>{cat.name}</strong>
+                  <span className="muted">{j.name}</span>
                 </span>
               </button>
             </li>
-          ))}
-        </ul>
-      </section>
+          )
+        })}
+      </ul>
       <button className="primary" onClick={() => setView({ kind: 'results' })}>Deliberation</button>
     </div>
   )

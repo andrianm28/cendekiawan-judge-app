@@ -2,6 +2,7 @@ import { finalScore, isComplete } from '../domain/scoring'
 import { categoryOf, teamsIn, type CategoryId, type Team } from '../domain/teams'
 import type { Judge } from '../judges'
 import type { ScoreRecord } from '../storage/scoreStore'
+import { Header } from './Header'
 
 interface Props {
   judge: Judge
@@ -15,13 +16,20 @@ export function TeamList({ judge, category, records, onOpen, onLogout }: Props) 
   const cat = categoryOf(category)
   return (
     <div className="screen">
-      <header className="bar">
+      <Header
+        hero={
+          <div className="kv" style={{ backgroundImage: `url(/brand/kv-${category}.jpg)` }}>
+            <span className="kv-group">Group {cat.group}</span>
+            <span className="kv-title">{cat.name}</span>
+          </div>
+        }
+      >
         <div className="bar-title">
-          <strong>Group {cat.group}: {cat.name}</strong>
-          <span className="muted">{judge.name}</span>
+          <strong>{judge.name}</strong>
+          <span className="sub">4 teams · up to 5 minutes each</span>
         </div>
         <button className="link" onClick={onLogout}>Log out</button>
-      </header>
+      </Header>
       <ul className="teams">
         {teamsIn(category).map((t) => {
           const r = records.find((x) => x.teamId === t.id && x.judgeId === judge.id)

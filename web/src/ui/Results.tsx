@@ -7,6 +7,7 @@ import { CATEGORIES, categoryOf, TEAMS } from '../domain/teams'
 import { JUDGES } from '../judges'
 import type { ScoreRecord } from '../storage/scoreStore'
 import { download } from './download'
+import { Header } from './Header'
 import { getStore } from './useScores'
 
 /** Deliberation view: category standings, Rank 1–5 the judges can reorder and lock, and the MC sheet. */
@@ -49,12 +50,12 @@ export function Results({ records, onBack }: { records: ScoreRecord[]; onBack: (
 
   return (
     <div className="screen wide">
-      <header className="bar">
+      <Header>
         <button className="link" onClick={onBack}>‹ Back</button>
-        <div className="bar-title"><strong>Deliberation</strong></div>
+        <div className="bar-title"><strong>Deliberation</strong><span className="sub">Grand Final · 20 October 2026</span></div>
         <button className="link" onClick={exportScores}>Export scores</button>
         <button className="link" onClick={() => download('cendekiawan-results.csv', resultsCsv(ranks))}>Export results</button>
-      </header>
+      </Header>
 
       {!allIn && <p className="banner">Not all scores are in. Rankings below are provisional.</p>}
       {stale && <p className="banner">A late score changed a category winner, so the saved order was reset to the proposal.</p>}
@@ -122,6 +123,7 @@ export function Results({ records, onBack }: { records: ScoreRecord[]; onBack: (
             Lock result
           </button>
         )}
+        {!locked && !allIn && <p className="muted small">Lock becomes available once all 20 scores are submitted.</p>}
       </section>
 
       <div className="grid">

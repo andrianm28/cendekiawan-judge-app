@@ -3,6 +3,7 @@ import { DEMO, LEVEL_NAMES, SOLUTION, type Criterion } from '../domain/rubric'
 import { c1, c2, finalScore, isComplete, type Level, type PartialSheet } from '../domain/scoring'
 import type { Team } from '../domain/teams'
 import type { ScoreRecord } from '../storage/scoreStore'
+import { Header } from './Header'
 
 const LEVELS: Level[] = [1, 2, 3, 4]
 
@@ -21,17 +22,17 @@ export function ScoreForm({ team, record, locked, onChange, onBack }: Props) {
 
   return (
     <div className="screen">
-      <header className="bar">
+      <Header>
         <button className="link" onClick={onBack}>‹ Teams</button>
         <div className="bar-title">
           <strong>{team.appName}</strong>
-          <span className="muted">{team.teamName} · {team.university}</span>
+          <span className="sub">{team.teamName} · {team.university}</span>
         </div>
         <div className="final" aria-live="polite">
           <span className="final-num">{complete ? finalScore(sheet) : '–'}</span>
-          <span className="muted small">/100</span>
+          <span className="sub small">/100</span>
         </div>
-      </header>
+      </Header>
 
       {locked && <p className="banner">This group is closed. Ask the operator to change a score.</p>}
 
