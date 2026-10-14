@@ -19,5 +19,5 @@ export function useScores() {
     },
     [refresh],
   )
-  return { records, save }
+  return { records, save, refresh }
 }

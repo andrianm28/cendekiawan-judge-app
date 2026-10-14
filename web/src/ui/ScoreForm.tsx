@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { DEMO, LEVEL_NAMES, SOLUTION, type Criterion } from '../domain/rubric'
 import { c1, c2, finalScore, isComplete, type Level, type PartialSheet } from '../domain/scoring'
 import type { Team } from '../domain/teams'
@@ -13,9 +13,11 @@ interface Props {
   locked: boolean
   onChange: (change: { sheet?: PartialSheet; note?: string; status?: ScoreRecord['status'] }) => void
   onBack: () => void
+  /** Replaces the submit bar, e.g. with the operator's correction form. */
+  footer?: ReactNode
 }
 
-export function ScoreForm({ team, record, locked, onChange, onBack }: Props) {
+export function ScoreForm({ team, record, locked, onChange, onBack, footer }: Props) {
   const sheet = record?.sheet ?? {}
   const complete = isComplete(sheet)
   const submitted = record?.status === 'submitted'
@@ -53,13 +55,13 @@ export function ScoreForm({ team, record, locked, onChange, onBack }: Props) {
       </label>
 
       <footer className="actions">
-        {submitted ? (
+        {footer ?? (submitted ? (
           <p className="muted">Submitted. You can still change scores until the group is closed.</p>
         ) : (
           <button className="primary" disabled={!complete || locked} onClick={() => onChange({ status: 'submitted' })}>
             {complete ? 'Submit score' : `Score all 9 criteria (${Object.keys(sheet).length}/9)`}
           </button>
-        )}
+        ))}
       </footer>
     </div>
   )

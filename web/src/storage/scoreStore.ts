@@ -1,5 +1,5 @@
 // Scores live on the tablet first (IndexedDB) so a dropped Wi-Fi never loses a tap.
-// The sync to the backend (later) reads records with synced === false.
+// The sync (src/sync) pushes records with synced === false and adopts newer server copies.
 
 import { openDB, type IDBPDatabase } from 'idb'
 import { EMPTY_DELIBERATION, type Deliberation } from '../domain/deliberation'
@@ -76,6 +76,27 @@ export class ScoreStore {
     await tx.store.put(next)
     await tx.done
     return next
+  }
+
+  /** Mark a record uploaded, unless the judge changed it again while the upload was in flight. */
+  async markSynced(judgeId: string, teamId: string, version: number): Promise<void> {
+    const tx = this.db.transaction(STORE, 'readwrite')
+    const r: ScoreRecord | undefined = await tx.store.get([judgeId, teamId])
+    if (r && r.version === version) await tx.store.put({ ...r, synced: true })
+    await tx.done
+  }
+
+  /**
+   * Take the server's copy when it is newer than ours (an operator correction, or the
+   * judge's sheet from another tablet). `force` takes it regardless, for closed groups.
+   */
+  async adopt(server: Omit<ScoreRecord, 'synced'>, force = false): Promise<boolean> {
+    const tx = this.db.transaction(STORE, 'readwrite')
+    const local: ScoreRecord | undefined = await tx.store.get([server.judgeId, server.teamId])
+    const take = force ? !local || local.version !== server.version || !local.synced : !local || server.version > local.version
+    if (take) await tx.store.put({ ...server, synced: true })
+    await tx.done
+    return take
   }
 
   async getDeliberation(): Promise<Deliberation> {

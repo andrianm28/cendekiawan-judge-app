@@ -1,6 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { CATEGORIES, type Team } from './domain/teams'
 import { JUDGES, type Judge } from './judges'
+import { Api, API_URL, type Session } from './sync/api'
+import { JudgeApp } from './ui/JudgeApp'
+import { Login } from './ui/Login'
+import { OperatorBoard } from './ui/OperatorBoard'
+import { loadSession, saveSession } from './ui/session'
 import { Results } from './ui/Results'
 import { ScoreForm } from './ui/ScoreForm'
 import { TeamList } from './ui/TeamList'
@@ -10,6 +15,25 @@ import { useScores } from './ui/useScores'
 type View = { kind: 'home' } | { kind: 'teams'; judge: Judge } | { kind: 'score'; judge: Judge; team: Team } | { kind: 'results' }
 
 export default function App() {
+  return API_URL ? <OnlineApp base={API_URL} /> : <LocalApp />
+}
+
+/** Connected mode: PIN login, judges sync to the server, the operator gets the board. */
+function OnlineApp({ base }: { base: string }) {
+  const [session, setSession] = useState<Session | null>(loadSession)
+  const api = useMemo(() => new Api(base, session?.token), [base, session?.token])
+  const login = (s: Session | null) => {
+    saveSession(s)
+    setSession(s)
+  }
+  const logout = () => login(null)
+  if (!session) return <Login api={api} onLogin={login} />
+  if (session.role === 'admin') return <OperatorBoard api={api} onLogout={logout} />
+  return <JudgeApp api={api} session={session} onLogout={logout} />
+}
+
+/** Single-tablet mode (no server): pick a group, everything stays on this device. */
+function LocalApp() {
   const [view, setView] = useState<View>({ kind: 'home' })
   const { records, save } = useScores()
 
