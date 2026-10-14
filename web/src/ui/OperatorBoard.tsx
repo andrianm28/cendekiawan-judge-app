@@ -159,7 +159,7 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
             <p className="muted small">Judges' tablets open the team on stage and show this timer. Judges only score. <strong>Stage screen ↗</strong> opens the projector view (team, timer, up next; no scores): drag it to the projector and double-click for full screen.</p>
             <details className="run-order">
               <summary>Running order</summary>
-              <p className="muted small">Drag ⠿ to change the order. Judges' tablets follow it.</p>
+              <p className="muted small">Drag a team to change the order. Judges' tablets follow it.</p>
               <RunOrderList
                 run={run}
                 judges={judges.length}
