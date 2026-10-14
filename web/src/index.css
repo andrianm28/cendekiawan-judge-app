@@ -39,9 +39,11 @@ img { display: block; }
   box-shadow: 0 2px 12px rgb(12 19 40 / 0.25);
 }
 .screen > .header { margin-left: -16px; margin-right: -16px; }
-.brand { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 2px 0 8px; }
-.logo-cendekiawan { height: 28px; width: auto; }
+.brand { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 4px 10px; }
+.logo-cendekiawan { height: 30px; width: auto; }
+.partners { display: flex; align-items: center; gap: 14px; }
 .logo-elitery { height: 22px; width: auto; }
+.logo-aws { height: 24px; width: auto; margin-top: 2px; }
 .header-row { display: flex; align-items: center; gap: 12px; padding-top: 8px; border-top: 1px solid rgb(255 255 255 / 0.12); }
 .header .link { color: #fff; }
 .header .sub { color: #b9c4d3; }
