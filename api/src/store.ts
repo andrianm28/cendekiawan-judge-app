@@ -57,6 +57,14 @@ export interface Store {
 
   appendAudit(entry: AuditEntry): Promise<void>
   listAudit(): Promise<AuditEntry[]>
+
+  /** Id of the current event data; changes on every reset so tablets drop their local copies. */
+  getEpoch(): Promise<string | null>
+  /**
+   * Delete every score, tie pick, closed category, presence, audit entry, the running
+   * order and the deliberation, and set a new epoch. Judges, names and PINs stay.
+   */
+  resetEventData(epoch: string): Promise<void>
 }
 
 export function memoryStore(): Store {
@@ -66,9 +74,10 @@ export function memoryStore(): Store {
   const closed = new Set<number>()
   let deliberation: Deliberation | undefined
   let runOrder: RunOrder | undefined
-  const ties: TieBreaks = {}
-  const presence: Record<string, string> = {}
+  let ties: TieBreaks = {}
+  let presence: Record<string, string> = {}
   const audit: AuditEntry[] = []
+  let epoch: string | null = null
   const clone = <T>(x: T): T => structuredClone(x)
   return {
     getJudges: async () => clone(judges),
@@ -90,5 +99,16 @@ export function memoryStore(): Store {
     getPresence: async () => ({ ...presence }),
     appendAudit: async (e) => void audit.push(clone(e)),
     listAudit: async () => audit.map(clone),
+    getEpoch: async () => epoch,
+    resetEventData: async (e) => {
+      scores.clear()
+      closed.clear()
+      deliberation = undefined
+      runOrder = undefined
+      ties = {}
+      presence = {}
+      audit.length = 0
+      epoch = e
+    },
   }
 }

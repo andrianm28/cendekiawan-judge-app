@@ -246,6 +246,10 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
           })}
         </>
       )}
+      <ResetCard scores={records.length} onReset={() => act(async () => {
+        const r = await api.resetEventData()
+        window.alert(`Reset done: ${r.scores} score sheets removed. Tablets clear their copies on their next sync.`)
+      })} />
       <section className="card">
         <h2>Change log</h2>
         {audit.length === 0 ? <p className="muted small">No changes yet.</p> : (
@@ -257,6 +261,33 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
         )}
       </section>
     </div>
+  )
+}
+
+/** Wipe the rehearsal (UAT) data. Typing RESET is the guard against a mis-tap on the day. */
+function ResetCard({ scores, onReset }: { scores: number; onReset: () => Promise<void> }) {
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  return (
+    <section className="card danger-zone">
+      <h2>Reset event data</h2>
+      <p className="small">
+        After a rehearsal: deletes all {scores} score sheets, tie picks, closed categories, the running order, the
+        deliberation and the change log, on the server and on every tablet. Judges, their names and all PINs stay.
+        Never use this during the Grand Final.
+      </p>
+      <div className="row reset-row">
+        <input type="text" placeholder="Type RESET" value={text} onChange={(e) => setText(e.target.value)} aria-label="Type RESET to confirm" />
+        <button className="secondary danger" disabled={text !== 'RESET' || busy} onClick={() => {
+          if (!window.confirm('Delete all event data now? This cannot be undone.')) return
+          setBusy(true)
+          void onReset().finally(() => {
+            setBusy(false)
+            setText('')
+          })
+        }}>Reset all data</button>
+      </div>
+    </section>
   )
 }
 
@@ -276,6 +307,7 @@ function describe(a: AuditEntry, judges: Judge[]): string {
     case 'set_order': return 'Changed the running order'
     case 'now_presenting': return d.teamId ? `On stage: ${team}` : 'Stage cleared'
     case 'start_timer': return `Timer started for ${team}`
+    case 'reset': return `Event data reset (${d.scores} score sheets removed)`
     case 'tie_pick': return `Tie in ${CATEGORIES.find((c) => c.id === d.category)?.name ?? d.category}: ${a.actor === 'admin' ? 'operator recorded' : `${judges.find((j) => j.id === a.actor)?.name ?? a.actor} chose`} ${team}`
     default: return a.action
   }

@@ -32,7 +32,11 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
       const r = await syncJudge(api, await getStore(), judge.id)
       if (r.error === 'unauthorized') return onLogout()
       setSync((prev) => (r.online ? r : { ...r, runOrder: prev?.runOrder, clockOffset: prev?.clockOffset, ties: prev?.ties }))
-      if (r.replaced.length) {
+      if (r.reset) {
+        lastCurrent.current = undefined
+        setTeam(null)
+      }
+      if (r.replaced.length || r.reset) {
         await refresh()
         setEpoch((e) => e + 1)
       }

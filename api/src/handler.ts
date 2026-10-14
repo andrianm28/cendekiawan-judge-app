@@ -9,6 +9,7 @@
 //   PUT  /admin/judges/{judgeId}        { name }
 //   PUT  /admin/deliberation            Deliberation
 //   PUT  /admin/runorder                { order?, current?, timer?: 'start' | 'reset' }
+//   POST /admin/reset                   { confirm: 'RESET' } wipes event data, keeps judges and PINs
 //   GET  /admin/audit
 
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda'
@@ -16,7 +17,7 @@ import { verifyToken, type Session } from './auth'
 import { dynamoStore } from './dynamoStore'
 import { ApiError, JudgingService } from './service'
 
-const ROUTE_WORDS = ['state', 'scores', 'admin', 'groups', 'judges', 'deliberation', 'audit', 'ties', 'runorder']
+const ROUTE_WORDS = ['state', 'scores', 'admin', 'groups', 'judges', 'deliberation', 'audit', 'ties', 'runorder', 'reset']
 
 type Event = Pick<APIGatewayProxyEventV2, 'requestContext' | 'headers' | 'body' | 'rawPath'> & {
   requestContext: { http: { method: string } }
@@ -40,6 +41,8 @@ export function makeHandler(service: JudgingService, secret: string) {
           return reply(200, await service.saveScore(session, parts[1], body))
         case 'PUT /ties/:':
           return reply(200, await service.pickTieWinner(session, parts[1], String(body.teamId ?? '')))
+        case 'POST /admin/reset':
+          return reply(200, await service.resetEventData(session, String(body.confirm ?? '')))
         case 'PUT /admin/runorder':
           return reply(200, await service.putRunOrder(session, body))
         case 'PUT /admin/scores/:/:':

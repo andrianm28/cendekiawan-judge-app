@@ -166,6 +166,35 @@ describe('ties', () => {
   })
 })
 
+describe('reset after a rehearsal', () => {
+  it('wipes event data for the operator only, keeps judges and PINs, and changes the epoch', async () => {
+    const { handler } = await setup()
+    const g1 = (await call(handler, 'POST', '/login', { pin: '1111' })).body.token
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    await call(handler, 'PUT', '/scores/t01', { sheet: FULL, note: '', status: 'submitted', version: 1 }, g1)
+    await call(handler, 'POST', '/admin/groups/1', { closed: true }, admin)
+    await call(handler, 'PUT', '/admin/runorder', { current: 't01', timer: 'start' }, admin)
+    await call(handler, 'PUT', '/admin/judges/g2', { name: 'Dr. Example' }, admin)
+    const before = (await call(handler, 'GET', '/state', undefined, admin)).body.epoch
+
+    expect((await call(handler, 'POST', '/admin/reset', { confirm: 'RESET' }, g1)).status).toBe(403)
+    expect((await call(handler, 'POST', '/admin/reset', { confirm: 'yes' }, admin)).status).toBe(400)
+    const r = await call(handler, 'POST', '/admin/reset', { confirm: 'RESET' }, admin)
+    expect(r.body.scores).toBe(1)
+
+    const s = (await call(handler, 'GET', '/state', undefined, admin)).body
+    expect(s.epoch).not.toBe(before)
+    expect(s.scores).toEqual([])
+    expect(s.closedGroups).toEqual([])
+    expect(s.runOrder.current).toBeNull()
+    expect(s.judges.find((j: { id: string }) => j.id === 'g2').name).toBe('Dr. Example')
+    expect((await call(handler, 'GET', '/admin/audit', undefined, admin)).body.map((a: { action: string }) => a.action)).toEqual(['reset'])
+    // The same PIN and the old session both still work.
+    expect((await call(handler, 'POST', '/login', { pin: '1111' })).status).toBe(200)
+    expect((await call(handler, 'PUT', '/scores/t01', { sheet: FULL, note: '', status: 'submitted', version: 1 }, g1)).status).toBe(200)
+  })
+})
+
 describe('admin', () => {
   it('renames a judge and refuses deliberation changes after lock', async () => {
     const { handler } = await setup()

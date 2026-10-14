@@ -20,6 +20,8 @@ export interface SyncResult {
   /** Server clock minus this tablet's clock, in ms, so the pitch timer matches the operator's. */
   clockOffset?: number
   ties?: TieSummary[]
+  /** The operator reset the event data and this tablet dropped its local records. */
+  reset?: boolean
   error?: string
 }
 
@@ -27,22 +29,28 @@ export async function syncJudge(api: Api, store: ScoreStore, judgeId: string): P
   const replaced: string[] = []
   let closedGroups: number[] = []
   try {
+    // Read the server first: after an operator reset, local records belong to the
+    // rehearsal and must be dropped before anything is uploaded.
+    const asked = Date.now()
+    const state = await api.state()
+    const clockOffset = Date.parse(state.serverTime) - (asked + Date.now()) / 2
+    const epoch = state.epoch ?? null
+    const reset = epoch !== (await store.getEpoch())
+    if (reset) await store.resetTo(epoch)
+
+    closedGroups = state.closedGroups
     for (const r of (await store.listForJudge(judgeId)).filter((x) => !x.synced)) {
       try {
         await api.saveScore(r)
         await store.markSynced(judgeId, r.teamId, r.version)
       } catch (e) {
         if (!(e instanceof ApiError)) throw e
-        // 409: the server holds a newer copy; 423: group closed. Either way the
-        // server copy wins and comes down in the pull below.
+        // 409: the server holds a newer copy; 423: category closed. Either way the
+        // server copy wins (below, or on the next round).
         if (e.status === 409 && e.current && (await store.adopt(e.current as ServerScore, true))) replaced.push(r.teamId)
         else if (e.status !== 423) throw e
       }
     }
-    const asked = Date.now()
-    const state = await api.state()
-    const clockOffset = Date.parse(state.serverTime) - (asked + Date.now()) / 2
-    closedGroups = state.closedGroups
     const judge = state.judges.find((j) => j.id === judgeId)
     const closed = (teamId: string) => {
       const t = TEAMS.find((x) => x.id === teamId)
@@ -53,7 +61,7 @@ export async function syncJudge(api: Api, store: ScoreStore, judgeId: string): P
     }
     const waiting = (await store.listForJudge(judgeId)).filter((x) => !x.synced).length
     return {
-      online: true, waiting, closedGroups, judge, replaced: [...new Set(replaced)],
+      online: true, waiting, closedGroups, judge, replaced: [...new Set(replaced)], reset,
       runOrder: state.runOrder, clockOffset, ties: state.ties,
     }
   } catch (e) {

@@ -2,7 +2,7 @@
 // sheets, so each list is one Query on its partition.
 
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
-import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb'
+import { DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb'
 import { randomUUID } from 'node:crypto'
 import type { Deliberation } from '../../web/src/domain/deliberation'
 import type { RunOrder } from '../../web/src/domain/runOrder'
@@ -14,6 +14,23 @@ export function dynamoStore(table: string, client = DynamoDBDocumentClient.from(
     ((await client.send(new GetCommand({ TableName: table, Key: { pk, sk } }))).Item?.value as T | undefined)
   const put = (pk: string, sk: string, value: unknown) =>
     client.send(new PutCommand({ TableName: table, Item: { pk, sk, value } })).then(() => undefined)
+  const del = (pk: string, sk: string) => client.send(new DeleteCommand({ TableName: table, Key: { pk, sk } })).then(() => undefined)
+  const keys = async (pk: string) => {
+    const out: string[] = []
+    let start: Record<string, unknown> | undefined
+    do {
+      const r = await client.send(new QueryCommand({
+        TableName: table,
+        KeyConditionExpression: 'pk = :pk',
+        ExpressionAttributeValues: { ':pk': pk },
+        ProjectionExpression: 'sk',
+        ExclusiveStartKey: start,
+      }))
+      out.push(...(r.Items ?? []).map((i) => i.sk as string))
+      start = r.LastEvaluatedKey
+    } while (start)
+    return out
+  }
   const query = async <T>(pk: string) => {
     const items: T[] = []
     let start: Record<string, unknown> | undefined
@@ -50,5 +67,15 @@ export function dynamoStore(table: string, client = DynamoDBDocumentClient.from(
     getPresence: async () => Object.fromEntries((await query<{ judgeId: string; at: string }>('PRESENCE')).map((p) => [p.judgeId, p.at])),
     appendAudit: (e: AuditEntry) => put('AUDIT', `${e.at}#${randomUUID()}`, e),
     listAudit: () => query<AuditEntry>('AUDIT'),
+    getEpoch: async () => (await get<string>('META', 'epoch')) ?? null,
+    resetEventData: async (epoch) => {
+      // A few hundred small items at most; plain deletes keep this simple.
+      for (const pk of ['SCORE', 'TIE', 'GROUP', 'PRESENCE', 'AUDIT']) {
+        for (const sk of await keys(pk)) await del(pk, sk)
+      }
+      await del('META', 'deliberation')
+      await del('META', 'runorder')
+      await put('META', 'epoch', epoch)
+    },
   }
 }

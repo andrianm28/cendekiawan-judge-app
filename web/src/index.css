@@ -271,3 +271,8 @@ span.timer { display: inline-flex; align-items: center; }
 .cell.draft { background: var(--warn-bg); border-color: var(--orange); font-weight: 600; font-size: 0.8rem; }
 .cell.empty { opacity: 0.5; }
 .tie-choices { justify-content: flex-start; flex-wrap: wrap; margin-top: 8px; }
+.danger-zone { border-color: #c92a2a; }
+.danger-zone h2 { color: #c92a2a; }
+.reset-row { justify-content: flex-start; flex-wrap: wrap; }
+.reset-row input { max-width: 200px; }
+.reset-row .danger:not(:disabled) { background: #c92a2a; border-color: #c92a2a; color: #fff; }

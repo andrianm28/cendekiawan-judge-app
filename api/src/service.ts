@@ -77,7 +77,12 @@ export class JudgingService {
     ])
     const publicJudges = judges.map(({ id, group, name }) => ({ id, group, name }))
     const ties = categoryTies(scores, judges.length, picks)
-    const common = { closedGroups, runOrder: normalizeRunOrder(runOrder), serverTime: this.now().toISOString() }
+    const common = {
+      closedGroups,
+      runOrder: normalizeRunOrder(runOrder),
+      serverTime: this.now().toISOString(),
+      epoch: await this.store.getEpoch(),
+    }
     if (s.role === 'judge') {
       await this.store.touchPresence(s.sub, this.now().toISOString())
       const me = publicJudges.find((j) => j.id === s.sub)
@@ -208,6 +213,21 @@ export class JudgingService {
     await this.store.putTieBreak(category as CategoryId, pick)
     await this.audit('tie_pick', { category, teamId, tied: tie.tied.map((t) => t.teamId) }, pick.by)
     return pick
+  }
+
+  /**
+   * Wipe the event data after a rehearsal (UAT): scores, ties, closed categories, running
+   * order, deliberation and the change log. Judges, names and PINs stay. Tablets see the
+   * new epoch on their next sync and clear their local copies.
+   */
+  async resetEventData(s: Session, confirm: string) {
+    requireAdmin(s)
+    if (confirm !== 'RESET') throw new ApiError(400, 'confirm_required', 'Type RESET to confirm')
+    const counts = { scores: (await this.store.listScores()).length }
+    const epoch = this.now().toISOString()
+    await this.store.resetEventData(epoch)
+    await this.audit('reset', counts)
+    return { epoch, ...counts }
   }
 
   async listAudit(s: Session) {

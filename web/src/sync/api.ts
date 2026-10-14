@@ -31,6 +31,8 @@ export interface ServerState {
   scores: ServerScore[]
   runOrder: RunOrder
   serverTime: string
+  /** Changes when the operator resets the event data. */
+  epoch: string | null
   /** Ties at the top of a fully scored category; a judge only gets their own category's. */
   ties: TieSummary[]
   tieBreaks?: TieBreaks
@@ -88,6 +90,7 @@ export class Api {
   pickTieWinner = (category: CategoryId, teamId: string) => this.call<TieBreak>('PUT', `/ties/${category}`, { teamId })
   putRunOrder = (body: { order?: string[]; current?: string | null; timer?: 'start' | 'reset' }) =>
     this.call<RunOrder>('PUT', '/admin/runorder', body)
+  resetEventData = () => this.call<{ epoch: string; scores: number }>('POST', '/admin/reset', { confirm: 'RESET' })
   putDeliberation = (d: Deliberation) => this.call<Deliberation>('PUT', '/admin/deliberation', d)
   audit = () => this.call<AuditEntry[]>('GET', '/admin/audit')
 }
