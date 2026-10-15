@@ -1,8 +1,8 @@
 // Rubric for the Grand Final: one rubric for the whole 5-minute slot (pitch and hands-on demo video),
-// in the order of the five segments the teams were taught in the Showcase Prep workshop deck. Each
-// criterion keeps its ToT UM meaning; the deck's terms appear only as examples ("e.g."), never as
-// requirements. Keys and weights are the ToT UM ones, so scoring.ts is unchanged; the weight shown is
-// each criterion's share of the final (D 50% ÷ 5, V × 50%).
+// in the order of the five segments the teams were taught in the Showcase Prep workshop deck. The
+// wording is the ToT UM rubric's, in plain words for executive judges who may not be technical. Keys
+// and weights are the ToT UM ones, so scoring.ts is unchanged; the weight shown is each criterion's
+// share of the final (D 50% ÷ 5, V × 50%).
 
 import type { CriterionKey, Level } from './scoring'
 
@@ -36,12 +36,12 @@ export const SEGMENTS: Segment[] = [
     criteria: [
       {
         key: 'd1', code: 'D1', name: 'Real problem', weight: '10%',
-        question: 'Does it solve a real problem for a clear user?',
+        question: 'Is it a real problem for real people?',
         levels: {
           1: 'No clear problem',
           2: 'A problem, but unclear who has it',
-          3: 'Clear problem and a clear user (e.g. a named persona in a specific situation)',
-          4: 'Level 3, plus facts on how big the problem is and why it matters now (e.g. a statistic, a real story)',
+          3: 'Clear problem and clear users',
+          4: 'Clear problem and users, plus facts showing it is big or urgent',
         },
       },
     ],
@@ -51,22 +51,22 @@ export const SEGMENTS: Segment[] = [
     criteria: [
       {
         key: 'd3', code: 'D3', name: 'Fresh idea', weight: '10%',
-        question: 'How new or creative is the idea, and does it make real use of AI?',
+        question: 'How new or creative is the idea?',
         levels: {
-          1: 'A tutorial or template, barely changed',
-          2: 'Common idea, done fine',
-          3: 'Common idea used in a smart new way, and it is clear what the AI does for the user',
-          4: 'Truly original; I have not seen this before (e.g. an edge others cannot easily copy)',
+          1: 'A copy of a common example, barely changed',
+          2: 'A common idea, done fine',
+          3: 'A common idea used in a smart new way',
+          4: 'Truly original; I have not seen this before',
         },
       },
       {
-        key: 'd2', code: 'D2', name: 'Works well on AWS', weight: '10%',
-        question: 'Does the app work on AWS (with Amazon Bedrock) and make sense to use?',
+        key: 'd2', code: 'D2', name: 'Works well', weight: '10%',
+        question: 'Does the app work, using AI on AWS?',
         levels: {
           1: 'Did not work',
           2: 'Worked, but with problems',
           3: 'Worked smoothly from start to end',
-          4: 'Level 3, felt like a finished product, and the team explained how it is built (e.g. the AWS services and Bedrock model used)',
+          4: 'Worked smoothly and felt like a finished product',
         },
       },
     ],
@@ -89,9 +89,9 @@ export const SEGMENTS: Segment[] = [
         question: 'Did it work well each time they tried it?',
         levels: {
           1: 'Failed or gave no result',
-          2: 'Worked, but they only tried it once',
-          3: 'Tried with different inputs, all good answers',
-          4: 'Level 3, plus it handled a tricky or unusual input well (or showed its limits honestly)',
+          2: 'Worked, but they tried it only once',
+          3: 'Tried a few different ways, good answers each time',
+          4: 'Also handled a tricky or unusual request well',
         },
       },
     ],
@@ -106,7 +106,7 @@ export const SEGMENTS: Segment[] = [
           1: 'Only features, no real situation',
           2: 'Talked about a use, did not show it',
           3: 'Showed a real situation step by step',
-          4: 'Level 3, plus who benefits and how much (e.g. time saved, people reached)',
+          4: 'Showed it, plus who benefits and how much',
         },
       },
       {
@@ -115,7 +115,7 @@ export const SEGMENTS: Segment[] = [
         levels: {
           1: 'Only a school exercise',
           2: 'Useful for a small group',
-          3: 'Ready for a real organisation or community (e.g. a Malaysian school, clinic or agency that could pilot it)',
+          3: 'Ready for a real organisation or community',
           4: 'Could grow to a whole sector or the country',
         },
       },
@@ -126,7 +126,7 @@ export const SEGMENTS: Segment[] = [
           1: 'Not mentioned',
           2: 'Said it can grow, no reason given',
           3: 'Named who else would use it',
-          4: 'Level 3, plus a clear plan to grow on AWS (e.g. cost per user, data, what breaks first)',
+          4: 'A clear plan to grow: cost, data and users',
         },
       },
     ],
@@ -136,12 +136,12 @@ export const SEGMENTS: Segment[] = [
     criteria: [
       {
         key: 'd5', code: 'D5', name: 'Clear pitch', weight: '10%',
-        question: 'Was the whole 5-minute pitch clear?',
+        question: 'Did the team explain it clearly?',
         levels: {
-          1: 'Hard to follow, or ran well over time',
+          1: 'Hard to follow, or well over time',
           2: 'Said what it does, not why',
           3: 'Clear problem, users and solution',
-          4: 'Level 3, convincing, with facts or examples',
+          4: 'Clear and convincing, with facts or examples',
         },
       },
     ],
