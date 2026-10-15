@@ -10,6 +10,13 @@ import type { ScoreRecord } from '../storage/scoreStore'
 
 export const API_URL: string | undefined = import.meta.env.VITE_API_URL || undefined
 
+/**
+ * A request that gets no answer in this time counts as offline. On a saturated or
+ * captive Wi-Fi a request can hang for minutes; without a limit the tablet would keep
+ * showing "Synced" while nothing moves.
+ */
+export const TIMEOUT_MS = 8000
+
 export type ServerScore = Omit<ScoreRecord, 'synced'>
 
 export interface Session {
@@ -69,17 +76,24 @@ export class Api {
   }
 
   private async call<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const res = await fetch(this.base + path, {
-      method,
-      headers: {
-        ...(body === undefined ? {} : { 'content-type': 'application/json' }),
-        ...(this.token ? { authorization: `Bearer ${this.token}` } : {}),
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    })
-    const data = res.status === 204 ? null : await res.json().catch(() => null)
-    if (!res.ok) throw new ApiError(res.status, data?.code ?? 'error', data?.message ?? res.statusText, data?.current)
-    return data as T
+    const abort = new AbortController()
+    const timer = setTimeout(() => abort.abort(new Error('No answer from the server')), TIMEOUT_MS)
+    try {
+      const res = await fetch(this.base + path, {
+        method,
+        headers: {
+          ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+          ...(this.token ? { authorization: `Bearer ${this.token}` } : {}),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: abort.signal,
+      })
+      const data = res.status === 204 ? null : await res.json().catch(() => null)
+      if (!res.ok) throw new ApiError(res.status, data?.code ?? 'error', data?.message ?? res.statusText, data?.current)
+      return data as T
+    } finally {
+      clearTimeout(timer)
+    }
   }
 
   login = (pin: string) => this.call<Session>('POST', '/login', { pin })

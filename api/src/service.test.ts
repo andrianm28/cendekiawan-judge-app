@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { hashPin } from './auth'
 import { makeHandler } from './handler'
-import { ApiError, JudgingService } from './service'
+import { ApiError, CORRECTION_STEP, JudgingService } from './service'
 import { memoryStore } from './store'
 import { CATEGORIES, TEAMS } from '../../web/src/domain/teams'
 
@@ -106,10 +106,27 @@ describe('saving scores', () => {
 
     expect((await call(handler, 'PUT', '/admin/scores/g1/t01', { sheet: { ...FULL, d5: 3 }, note: '', status: 'submitted', reason: '' }, admin)).status).toBe(400)
     const fixed = await call(handler, 'PUT', '/admin/scores/g1/t01', { sheet: { ...FULL, d5: 3 }, note: '', status: 'submitted', reason: 'Judge asked to fix D5' }, admin)
-    expect(fixed.body.version).toBe(2)
+    expect(fixed.body.version).toBe(1 + CORRECTION_STEP)
     const audit = (await call(handler, 'GET', '/admin/audit', undefined, admin)).body
     expect(audit.map((a: { action: string }) => a.action)).toEqual(['close_group', 'correct_score'])
     expect(audit[1].detail.reason).toBe('Judge asked to fix D5')
+  })
+
+  it('keeps an operator correction when a tablet comes back with taps it made offline before it', async () => {
+    const { handler } = await setup()
+    const g1 = (await call(handler, 'POST', '/login', { pin: '1111' })).body.token
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    await call(handler, 'PUT', '/scores/t01', { sheet: { d1: 2 }, note: '', status: 'draft', version: 3 }, g1)
+    // The tablet went dark; the operator keys the judge's paper sheet.
+    const paper = { sheet: { ...FULL, d1: 4 }, note: 'paper', status: 'submitted', reason: 'Tablet died, paper backup' }
+    expect((await call(handler, 'PUT', '/admin/scores/g1/t01', paper, admin)).status).toBe(200)
+    // The tablet revives with 20 more offline taps: stale, and it is handed the correction.
+    const late = await call(handler, 'PUT', '/scores/t01', { sheet: { ...FULL, d1: 1 }, note: '', status: 'submitted', version: 23 }, g1)
+    expect(late.status).toBe(409)
+    expect(late.body.current.sheet).toEqual(paper.sheet)
+    // The judge can still change the sheet afterwards from the corrected copy.
+    const next = await call(handler, 'PUT', '/scores/t01', { sheet: { ...FULL, d1: 3 }, note: 'paper', status: 'submitted', version: late.body.current.version + 1 }, g1)
+    expect(next.status).toBe(200)
   })
 
   it('freezes every score once the result is locked, for judges and the operator', async () => {
@@ -288,7 +305,7 @@ describe('admin', () => {
     const body = { sheet: FULL, note: 'from paper', status: 'submitted', reason: 'Tablet failed, paper backup' }
     const r = await call(handler, 'PUT', '/admin/scores/g2/t07', body, admin)
     expect(r.status).toBe(200)
-    expect(r.body).toMatchObject({ judgeId: 'g2', teamId: 't07', status: 'submitted', version: 1 })
+    expect(r.body).toMatchObject({ judgeId: 'g2', teamId: 't07', status: 'submitted', version: CORRECTION_STEP })
     expect((await call(handler, 'PUT', '/admin/scores/g9/t07', body, admin)).status).toBe(404)
     expect((await call(handler, 'PUT', '/admin/scores/g2/t99', body, admin)).status).toBe(404)
   })

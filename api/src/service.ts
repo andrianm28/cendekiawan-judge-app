@@ -24,6 +24,13 @@ export class ApiError extends Error {
 
 const SESSION_HOURS = 12
 
+/**
+ * An operator correction jumps the sheet's version this far ahead, so taps a tablet
+ * made offline before it (a sheet holds a few dozen taps at most) arrive as stale and
+ * the tablet takes the correction instead of silently overwriting it.
+ */
+export const CORRECTION_STEP = 1000
+
 export interface ScoreInput {
   sheet: PartialSheet
   note: string
@@ -170,7 +177,7 @@ export class JudgingService {
     }
     // No sheet yet (a tablet failed before saving): the operator enters it from the paper backup.
     const prev = (await this.store.getScore(judgeId, teamId)) ?? { judgeId, teamId, sheet: {}, note: '', status: 'draft' as const, version: 0, updatedAt: '' }
-    const next: StoredScore = { ...prev, ...input, version: prev.version + 1, updatedAt: this.now().toISOString() }
+    const next: StoredScore = { ...prev, ...input, version: prev.version + CORRECTION_STEP, updatedAt: this.now().toISOString() }
     await this.store.putScore(next)
     await this.audit('correct_score', { judgeId, teamId, reason: reason.trim(), before: prev, after: next })
     return next

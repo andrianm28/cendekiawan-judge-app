@@ -8,3 +8,9 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 )
+
+// Lets a tablet reopen the app with no Wi-Fi (public/sw.js). Production builds only,
+// so the dev server is never served from a cache.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  void navigator.serviceWorker.register('/sw.js').catch(() => {})
+}
