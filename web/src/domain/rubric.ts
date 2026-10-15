@@ -1,7 +1,8 @@
 // Rubric for the Grand Final: one rubric for the whole 5-minute slot (pitch and hands-on demo video),
-// in the order of the five segments the teams were taught in the Showcase Prep workshop deck, with the
-// deck's own wording. Criteria, keys and weights are the ToT UM ones, so scoring.ts is unchanged; the
-// weight shown is each criterion's share of the final (D 50% ÷ 5, V × 50%).
+// in the order of the five segments the teams were taught in the Showcase Prep workshop deck. Each
+// criterion keeps its ToT UM meaning; the deck's terms appear only as examples ("e.g."), never as
+// requirements. Keys and weights are the ToT UM ones, so scoring.ts is unchanged; the weight shown is
+// each criterion's share of the final (D 50% ÷ 5, V × 50%).
 
 import type { CriterionKey, Level } from './scoring'
 
@@ -35,12 +36,12 @@ export const SEGMENTS: Segment[] = [
     criteria: [
       {
         key: 'd1', code: 'D1', name: 'Real problem', weight: '10%',
-        question: 'Did they name a specific user and show the problem is real?',
+        question: 'Does it solve a real problem for a clear user?',
         levels: {
-          1: 'Generic users ("everyone", "students"), no clear problem',
-          2: 'A problem, but the user is generic or there is no evidence ("we believe…")',
-          3: 'A named persona in a specific situation, plus one piece of evidence (a statistic, a real story or a user conversation)',
-          4: 'Level 3, plus how people solve it today and the gap this app fills',
+          1: 'No clear problem',
+          2: 'A problem, but unclear who has it',
+          3: 'Clear problem and a clear user (e.g. a named persona in a specific situation)',
+          4: 'Level 3, plus facts on how big the problem is and why it matters now (e.g. a statistic, a real story)',
         },
       },
     ],
@@ -49,23 +50,23 @@ export const SEGMENTS: Segment[] = [
     title: 'Solution', time: '0:45–1:30',
     criteria: [
       {
-        key: 'd3', code: 'D3', name: 'Why AI, and what is different', weight: '10%',
-        question: 'Does it really need AI, and is it different from what already exists?',
+        key: 'd3', code: 'D3', name: 'Fresh idea', weight: '10%',
+        question: 'How new or creative is the idea, and does it make real use of AI?',
         levels: {
-          1: 'A tutorial or template; a form or search engine would do the same',
-          2: '"AI is powerful / modern" without saying what it does; no clear difference',
-          3: 'Names what the AI does for this user (e.g. understands free text) and one clear difference from existing solutions',
-          4: 'Level 3, plus a local edge big players will not copy (BM or dialect, Malaysian systems, a niche)',
+          1: 'A tutorial or template, barely changed',
+          2: 'Common idea, done fine',
+          3: 'Common idea used in a smart new way, and it is clear what the AI does for the user',
+          4: 'Truly original; I have not seen this before (e.g. an edge others cannot easily copy)',
         },
       },
       {
-        key: 'd2', code: 'D2', name: 'Works on AWS', weight: '10%',
-        question: 'Does the app run on AWS with Amazon Bedrock, and can the team explain how?',
+        key: 'd2', code: 'D2', name: 'Works well on AWS', weight: '10%',
+        question: 'Does the app work on AWS (with Amazon Bedrock) and make sense to use?',
         levels: {
-          1: 'Not deployed, or did not work',
-          2: 'Worked with problems, or the team could not explain how it is built',
-          3: 'The deployed app worked end to end, and they explained the architecture (user → Lambda → Bedrock, model named)',
-          4: 'Level 3, felt like a finished product, with a reason for the model they chose',
+          1: 'Did not work',
+          2: 'Worked, but with problems',
+          3: 'Worked smoothly from start to end',
+          4: 'Level 3, felt like a finished product, and the team explained how it is built (e.g. the AWS services and Bedrock model used)',
         },
       },
     ],
@@ -75,22 +76,22 @@ export const SEGMENTS: Segment[] = [
     criteria: [
       {
         key: 'v2', code: 'V2', name: 'Easy to use', weight: '12.5%',
-        question: 'Could their user use it without help?',
+        question: 'Could a new user use it without help?',
         levels: {
           1: 'Could not tell how to use it',
           2: 'Could follow it only because the presenter explained',
-          3: 'Their user could follow it',
+          3: 'A new user could follow it',
           4: 'So simple it needs no explaining',
         },
       },
       {
         key: 'v3', code: 'V3', name: 'Reliable', weight: '10%',
-        question: 'Did it give meaningful answers with different inputs?',
+        question: 'Did it work well each time they tried it?',
         levels: {
           1: 'Failed or gave no result',
-          2: 'Worked, but with only one input',
-          3: '2–3 real inputs, all with meaningful outputs',
-          4: 'Also handled an unusual or harmful input well, or showed its limits and guardrails honestly',
+          2: 'Worked, but they only tried it once',
+          3: 'Tried with different inputs, all good answers',
+          4: 'Level 3, plus it handled a tricky or unusual input well (or showed its limits honestly)',
         },
       },
     ],
@@ -100,47 +101,47 @@ export const SEGMENTS: Segment[] = [
     criteria: [
       {
         key: 'v1', code: 'V1', name: 'Impact shown', weight: '17.5%',
-        question: 'Did they show how it helps their user, and how much?',
+        question: 'Did they show how it helps real people?',
         levels: {
           1: 'Only features, no real situation',
           2: 'Talked about a use, did not show it',
-          3: "Showed the user's real situation step by step",
-          4: 'Level 3, plus who benefits and how much (a number or a named organisation)',
+          3: 'Showed a real situation step by step',
+          4: 'Level 3, plus who benefits and how much (e.g. time saved, people reached)',
         },
       },
       {
-        key: 'd4', code: 'D4', name: 'Real organisation', weight: '10%',
-        question: 'Could a real organisation use this outside the competition?',
+        key: 'd4', code: 'D4', name: 'Usable in real life', weight: '10%',
+        question: 'Could people really use this outside the competition?',
         levels: {
           1: 'Only a school exercise',
-          2: 'Useful for a small group; "maybe someone would be interested"',
-          3: 'Names one real Malaysian organisation that could pilot it (school, clinic, NGO, agency, GLC)',
-          4: 'Level 3, plus a plan to roll it out and who might be left out (device, internet, digital skills)',
+          2: 'Useful for a small group',
+          3: 'Ready for a real organisation or community (e.g. a Malaysian school, clinic or agency that could pilot it)',
+          4: 'Could grow to a whole sector or the country',
         },
       },
       {
-        key: 'v4', code: 'V4', name: 'Can grow on AWS', weight: '10%',
-        question: 'Do they know what it takes to serve many more users on AWS?',
+        key: 'v4', code: 'V4', name: 'Can grow', weight: '10%',
+        question: 'Could it serve many more people?',
         levels: {
           1: 'Not mentioned',
-          2: '"It can scale / AWS is scalable", no reason given',
-          3: 'Who else would use it, plus a rough AWS cost per user per month',
-          4: 'Level 3, plus what breaks first at scale (e.g. Lambda concurrency, Bedrock limits) and how they would handle it',
+          2: 'Said it can grow, no reason given',
+          3: 'Named who else would use it',
+          4: 'Level 3, plus a clear plan to grow on AWS (e.g. cost per user, data, what breaks first)',
         },
       },
     ],
   },
   {
-    title: 'Closing', time: 'whole 5 minutes',
+    title: 'Closing', time: '4:15–5:00',
     criteria: [
       {
         key: 'd5', code: 'D5', name: 'Clear pitch', weight: '10%',
-        question: 'Was the 5-minute story clear and convincing?',
+        question: 'Was the whole 5-minute pitch clear?',
         levels: {
           1: 'Hard to follow, or ran well over time',
-          2: 'Said what it does, not why; one person carried everything',
-          3: 'Clear problem → solution → demo → impact within 5 minutes',
-          4: 'Level 3, plus a one-sentence pitch anyone understands, ending on impact, with smooth hand-offs',
+          2: 'Said what it does, not why',
+          3: 'Clear problem, users and solution',
+          4: 'Level 3, convincing, with facts or examples',
         },
       },
     ],
