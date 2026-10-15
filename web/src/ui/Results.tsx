@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { applyOrder, EMPTY_DELIBERATION, lock, moveRank, type Deliberation, type FinalRank } from '../domain/deliberation'
 import { resultsCsv, scoresCsv } from '../domain/exportCsv'
-import { announcementOrder, proposeRanks, rankCategory } from '../domain/ranking'
+import { announcementOrder, exactFinal, proposeRanks, rankCategory } from '../domain/ranking'
 import { c1, c2, isComplete, type ScoreSheet } from '../domain/scoring'
 import { CATEGORIES, categoryOf, TEAMS, type CategoryId } from '../domain/teams'
 import { categoryTies, type TieBreaks } from '../domain/ties'
@@ -127,7 +127,7 @@ export function Results({ records, onBack, io = localDeliberation, judges = JUDG
                 <td>{r.award}{r.tiedWithAbove && <span className="pill draft">tie</span>}</td>
                 <td>{r.winner.team.appName} <span className="muted small">{r.winner.team.university}</span></td>
                 <td>{categoryOf(r.winner.team.category).name}</td>
-                <td className="num">{r.winner.final}</td>
+                <td className="num">{r.winner.final} <span className="muted small">({exactFinal(r.winner)})</span></td>
                 <td className="moves">
                   {!locked && (
                     <>
@@ -209,7 +209,7 @@ export function Results({ records, onBack, io = localDeliberation, judges = JUDG
                 <li key={r.team.id}>
                   <div className="standing-row">
                     <span>{r.team.appName}</span>
-                    <span className="num">{r.final}</span>
+                    <span className="num">{r.final} <span className="muted small">({exactFinal(r)})</span></span>
                   </div>
                   <div className="muted small">C1 {avg(r.team.id, c1)} · C2 {avg(r.team.id, c2)}</div>
                   {notesByTeam.get(r.team.id)?.map((n, i) => <div key={i} className="small judge-note">“{n}”</div>)}

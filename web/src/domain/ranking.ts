@@ -44,18 +44,22 @@ export function teamResult(team: Team, sheets: ScoreSheet[]): TeamResult {
 }
 
 // Compare averages a.x / a.judges vs b.x / b.judges without division.
-const avgCmp = (a: TeamResult, b: TeamResult, key: 'd1Sum' | 'd4Sum') => b[key] * a.judges - a[key] * b.judges
+const avgCmp = (a: TeamResult, b: TeamResult, key: 'finalTimes8Sum' | 'd1Sum' | 'd4Sum') => b[key] * a.judges - a[key] * b.judges
+
+/** The unrounded average final, to two decimals, for the operator's screens. */
+export const exactFinal = (r: TeamResult): string => (r.finalTimes8Sum / (8 * r.judges)).toFixed(2)
 
 /**
- * Higher final first. Equal finals are listed by D1, then D4, only so the order is
+ * Higher unrounded average first (ADR 0005), so 77.25 ranks above 76.75 though both
+ * show as 77. Exactly equal averages are listed by D1, then D4, only so the order is
  * stable on screen; they still count as a tie (see `sameFinal`) and judges decide.
  */
 export function compareResults(a: TeamResult, b: TeamResult): number {
-  return b.final - a.final || avgCmp(a, b, 'd1Sum') || avgCmp(a, b, 'd4Sum')
+  return avgCmp(a, b, 'finalTimes8Sum') || avgCmp(a, b, 'd1Sum') || avgCmp(a, b, 'd4Sum')
 }
 
-/** Equal finals are a tie, whatever D1 and D4 say (ADR 0003). */
-export const sameFinal = (a: TeamResult, b: TeamResult): boolean => a.final === b.final
+/** A tie is an exactly equal unrounded average, whatever D1 and D4 say (ADR 0003, 0005). */
+export const sameFinal = (a: TeamResult, b: TeamResult): boolean => avgCmp(a, b, 'finalTimes8Sum') === 0
 
 export function rankCategory(
   category: CategoryId,
@@ -69,7 +73,7 @@ export function rankCategory(
   const sorted = scored
     .map((t) => teamResult(t, sheetsByTeam.get(t.id)!))
     .sort((a, b) => compareResults(a, b) || a.team.order - b.team.order)
-  const tiedTop = sorted.length > 1 && sorted[0].final === sorted[1].final ? sorted.filter((r) => r.final === sorted[0].final) : sorted.slice(0, 1)
+  const tiedTop = sorted.length > 1 && sameFinal(sorted[0], sorted[1]) ? sorted.filter((r) => sameFinal(r, sorted[0])) : sorted.slice(0, 1)
   const tie = tiedTop.length > 1
   const applies = tie && !!pick && tiedTop.some((r) => r.team.id === pick)
   const ranked = applies ? [...sorted.filter((r) => r.team.id === pick), ...sorted.filter((r) => r.team.id !== pick)] : sorted

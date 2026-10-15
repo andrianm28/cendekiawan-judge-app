@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { announcementOrder, proposeRanks, rankCategory } from './ranking'
+import { announcementOrder, exactFinal, proposeRanks, rankCategory } from './ranking'
 import type { ScoreSheet } from './scoring'
 import { CATEGORIES, TEAMS } from './teams'
 
@@ -44,6 +44,20 @@ describe('rankCategory', () => {
 
     // A pick outside the tied teams does nothing.
     expect(rankCategory('health', TEAMS, scores, 't07').tiedAtTop).toBe(true)
+  })
+
+  it('ranks by the unrounded average, so two teams both showing 77 are not a tie', () => {
+    // t05 averages 77.19 (8 × final: 605 and 630), t06 averages 76.88 (615 twice); both round to 77.
+    const scores = new Map([
+      ['t05', [sheet([3, 3, 3, 3, 3], [3, 4, 3, 2]), sheet([3, 3, 3, 3, 3], [4, 2, 4, 3])]],
+      ['t06', [WARIS, WARIS]],
+    ])
+    const s = rankCategory('health', TEAMS, scores)
+    expect(s.ranked.map((r) => [r.team.id, r.final, exactFinal(r)])).toEqual([
+      ['t05', 77, '77.19'],
+      ['t06', 77, '76.88'],
+    ])
+    expect(s.tiedAtTop).toBe(false)
   })
 
   it('averages every judge before comparing', () => {
