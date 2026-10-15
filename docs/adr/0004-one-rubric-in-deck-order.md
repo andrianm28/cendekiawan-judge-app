@@ -1,0 +1,5 @@
+# One rubric in the order of the workshop deck
+
+Decided by Elite Academy on 15 Oct 2026, before the rubric was announced to teams. The teams had only seen the Showcase Prep workshop deck (five segments: Problem, Solution, Demo, Real-world impact, Closing), and their demo videos show the app being used, nothing else. A separate "Demo Video" component would have asked judges to find impact (V1) and growth (V4) in a video that was never meant to carry them, and 8 teams had already submitted such videos.
+
+So judges see one rubric, scored from the whole 5-minute slot, with the nine criteria grouped by deck segment and the level descriptions reworded in the deck's own terms. Keys, weights and the formula are unchanged (ADR 0001), so every score is the same as before; C1/C2 survive only as internal subtotals in exports and the operator's views. Rebuilding into eight criteria with round weights was rejected: it would change the tested scoring five days before the event.

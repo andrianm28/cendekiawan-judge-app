@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { TimerClock } from '../domain/runOrder'
-import { DEMO, LEVEL_NAMES, SOLUTION, type Criterion } from '../domain/rubric'
-import { c1, c2, finalScore, isComplete, type Level, type PartialSheet } from '../domain/scoring'
+import { LEVEL_NAMES, SEGMENTS, type Criterion } from '../domain/rubric'
+import { finalScore, isComplete, type Level, type PartialSheet } from '../domain/scoring'
 import { categoryOf, type Team } from '../domain/teams'
 import type { ScoreRecord } from '../storage/scoreStore'
 import type { Judge } from '../judges'
@@ -57,10 +57,10 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer, time
       {judge && <JudgeBadge judge={judge} compact />}
       {locked && <p className="banner">This category is closed. Ask the operator to change a score.</p>}
 
-      <Section title="Solution" subtitle={complete ? `C1 ${c1(sheet)}` : '50%'}
-        criteria={SOLUTION} sheet={sheet} disabled={frozen} onPick={(k, l) => edit({ sheet: { [k]: l } })} />
-      <Section title="Demo Video" subtitle={complete ? `C2 ${c2(sheet)}` : '50%'}
-        criteria={DEMO} sheet={sheet} disabled={frozen} onPick={(k, l) => edit({ sheet: { [k]: l } })} />
+      {SEGMENTS.map((seg) => (
+        <Section key={seg.title} title={seg.title} subtitle={seg.time}
+          criteria={seg.criteria} sheet={sheet} disabled={frozen} onPick={(k, l) => edit({ sheet: { [k]: l } })} />
+      ))}
 
       <label className="note">
         <span>Note (optional, one sentence)</span>
