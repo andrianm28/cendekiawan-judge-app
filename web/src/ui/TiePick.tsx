@@ -33,7 +33,7 @@ export function TiePick({ tie, onPick, onBack }: {
                 <span className="order">{team.order}</span>
                 <span className="team-name">
                   <strong>{team.appName}</strong>
-                  <span className="muted small">{team.university} · C1 {t.c1} · C2 {t.c2} · D1 {t.d1} · D4 {t.d4}</span>
+                  <span className="muted small">{team.university} · D1 {t.d1} · D4 {t.d4}</span>
                 </span>
                 <span className="score">{t.final}</span>
               </button>

@@ -57,6 +57,8 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer, time
       {judge && <JudgeBadge judge={judge} compact />}
       {locked && <p className="banner">This category is closed. Ask the operator to change a score.</p>}
 
+      <p className="muted small rubric-hint">Score what you see and hear in the whole 5 minutes, pitch and video. Between two levels, pick the lower; most teams land on 2 or 3.</p>
+
       {SEGMENTS.map((seg) => (
         <Section key={seg.title} title={seg.title} subtitle={seg.time}
           criteria={seg.criteria} sheet={sheet} disabled={frozen} onPick={(k, l) => edit({ sheet: { [k]: l } })} />

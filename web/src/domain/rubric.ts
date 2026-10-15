@@ -39,9 +39,9 @@ export const SEGMENTS: Segment[] = [
         question: 'Is it a real problem for real people?',
         levels: {
           1: 'No clear problem',
-          2: 'A problem, but unclear who has it',
+          2: 'A problem, but vague: unclear what it is or who has it',
           3: 'Clear problem and clear users',
-          4: 'Clear problem and users, plus facts showing it is big or urgent',
+          4: 'Level 3, plus evidence it matters now (a number, a real story, or what users said)',
         },
       },
     ],
@@ -51,22 +51,12 @@ export const SEGMENTS: Segment[] = [
     criteria: [
       {
         key: 'd3', code: 'D3', name: 'Fresh idea', weight: '10%',
-        question: 'How new or creative is the idea?',
+        question: 'How new is the idea, and does it really need AI?',
         levels: {
-          1: 'A copy of a common example, barely changed',
+          1: 'A basic chatbot or sample app, little changed',
           2: 'A common idea, done fine',
-          3: 'A common idea used in a smart new way',
-          4: 'Truly original; I have not seen this before',
-        },
-      },
-      {
-        key: 'd2', code: 'D2', name: 'Works well', weight: '10%',
-        question: 'Does the app work, using AI on AWS?',
-        levels: {
-          1: 'Did not work',
-          2: 'Worked, but with problems',
-          3: 'Worked smoothly from start to end',
-          4: 'Worked smoothly and felt like a finished product',
+          3: 'A common idea used in a smart new way, and AI is really needed',
+          4: 'Original and clearly different from existing apps, with AI at its heart',
         },
       },
     ],
@@ -75,23 +65,33 @@ export const SEGMENTS: Segment[] = [
     title: 'Demo', time: '1:30–3:30',
     criteria: [
       {
+        key: 'd2', code: 'D2', name: 'Works well', weight: '10%',
+        question: 'Does the app work, with its AI (Amazon Bedrock) doing real work?',
+        levels: {
+          1: 'Main feature not shown working',
+          2: 'Worked, but with visible errors or gaps',
+          3: 'Worked from start to end, and the AI does real work',
+          4: 'Level 3, and looks ready for real users today',
+        },
+      },
+      {
         key: 'v2', code: 'V2', name: 'Easy to use', weight: '12.5%',
         question: 'Could a new user use it without help?',
         levels: {
           1: 'Could not tell how to use it',
-          2: 'Could follow it only because the presenter explained',
-          3: 'A new user could follow it',
-          4: 'So simple it needs no explaining',
+          2: 'Hard to follow; needed a lot of explaining',
+          3: 'Easy to follow; each step is clear on screen',
+          4: 'Clear at a glance: few steps, nothing confusing',
         },
       },
       {
         key: 'v3', code: 'V3', name: 'Reliable', weight: '10%',
-        question: 'Did it work well each time they tried it?',
+        question: 'Did it give good answers with different inputs?',
         levels: {
-          1: 'Failed or gave no result',
-          2: 'Worked, but they tried it only once',
-          3: 'Tried a few different ways, good answers each time',
-          4: 'Also handled a tricky or unusual request well',
+          1: 'Failed, or gave no useful answer',
+          2: 'Only one input shown, or some answers wrong or weak',
+          3: '2–3 different inputs, good answers each time',
+          4: 'Level 3, plus it handled a tricky, unusual or unsafe input well',
         },
       },
     ],
@@ -105,18 +105,18 @@ export const SEGMENTS: Segment[] = [
         levels: {
           1: 'Only features, no real situation',
           2: 'Talked about a use, did not show it',
-          3: 'Showed a real situation step by step',
-          4: 'Showed it, plus who benefits and how much',
+          3: "Showed a real user's situation, in the pitch or video",
+          4: 'Level 3, plus who benefits and how much (people helped, time or money saved)',
         },
       },
       {
         key: 'd4', code: 'D4', name: 'Usable in real life', weight: '10%',
-        question: 'Could people really use this outside the competition?',
+        question: 'Could a real organisation use this now?',
         levels: {
           1: 'Only a school exercise',
-          2: 'Useful for a small group',
-          3: 'Ready for a real organisation or community',
-          4: 'Could grow to a whole sector or the country',
+          2: 'Useful, but not ready for real use yet',
+          3: 'Ready for a real organisation or community to use',
+          4: 'Level 3, plus a named real organisation that wants to use it',
         },
       },
       {
@@ -125,8 +125,8 @@ export const SEGMENTS: Segment[] = [
         levels: {
           1: 'Not mentioned',
           2: 'Said it can grow, no reason given',
-          3: 'Named who else would use it',
-          4: 'A clear plan to grow: cost, data and users',
+          3: 'Named who else would use it, or a partial plan',
+          4: 'A clear plan to grow, covering at least two of: cost, data, number of users',
         },
       },
     ],
@@ -136,12 +136,12 @@ export const SEGMENTS: Segment[] = [
     criteria: [
       {
         key: 'd5', code: 'D5', name: 'Clear pitch', weight: '10%',
-        question: 'Did the team explain it clearly?',
+        question: 'Was the pitch clear and easy to follow?',
         levels: {
-          1: 'Hard to follow, or well over time',
-          2: 'Said what it does, not why',
-          3: 'Clear problem, users and solution',
-          4: 'Clear and convincing, with facts or examples',
+          1: 'Hard to follow',
+          2: 'Said what it does, not why it matters',
+          3: 'Easy to follow, in a logical order, within time',
+          4: 'Level 3, and memorable: I could repeat their main point',
         },
       },
     ],

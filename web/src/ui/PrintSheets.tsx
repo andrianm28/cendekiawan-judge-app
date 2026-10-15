@@ -23,7 +23,7 @@ export function PrintSheets({ judges, order, onBack }: { judges: Judge[]; order?
 
       <section className="print-page">
         <Brand title="Judging rubric · Pitch and demo video" />
-        <p className="small">One rubric for the whole 5 minutes, in the order the teams present: problem, solution, demo, impact, closing. Score each criterion 1 Poor · 2 Fair · 3 Good · 4 Excellent from what you see and hear in the pitch and the demo video; the weight is its share of the final. If a team meets only part of a level, give the level below. Most criteria land on 2 or 3; give 1 or 4 only when you can point to what earns it.</p>
+        <p className="small">One rubric for the whole 5 minutes, in the order the teams present: problem, solution, demo, impact, closing. Score each criterion 1 Poor · 2 Fair · 3 Good · 4 Excellent from what you see and hear in the pitch and the demo video; the weight is its share of the final. Judge only what is shown: a step cut from the video counts as not shown. If a team meets only part of a level, give the level below. Most criteria land on 2 or 3; give 1 or 4 only when you can point to what earns it.</p>
         <table>
           <thead><tr><th>Criterion</th>{([1, 2, 3, 4] as const).map((l) => <th key={l}>{l} {LEVEL_NAMES[l]}</th>)}</tr></thead>
           <tbody>
