@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "sim": "vitest run --config sim/vitest.config.ts"
   },
   "dependencies": {
     "idb": "^8.0.3",

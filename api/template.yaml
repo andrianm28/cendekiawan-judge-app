@@ -59,10 +59,21 @@ Resources:
         AllowMethods: [GET, POST, PUT, OPTIONS]
         AllowHeaders: [authorization, content-type]
         MaxAge: 600
-      # Slows PIN guessing; the whole event is ~6 tablets.
+      # Five judges tapping at once after a pitch, plus the operator board and stage
+      # screens, peak at ~20 requests a second; at 10/20 they were throttled and tablets
+      # flickered "Offline". Login keeps the low limit to slow PIN guessing.
       DefaultRouteSettings:
-        ThrottlingRateLimit: 10
-        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 50
+        ThrottlingBurstLimit: 100
+      RouteSettings:
+        'POST /login':
+          ThrottlingRateLimit: 10
+          ThrottlingBurstLimit: 20
+        # Public (no login): its own budget so a stage screen left open anywhere cannot
+        # use up the tablets' share.
+        'GET /stage':
+          ThrottlingRateLimit: 10
+          ThrottlingBurstLimit: 20
 
   ApiFunction:
     Type: AWS::Serverless::Function
@@ -79,6 +90,13 @@ Resources:
         Any:
           Type: HttpApi
           Properties: { ApiId: !Ref Api, Path: '/{proxy+}', Method: ANY }
+        # Its own route so it can keep its own, lower throttle (RouteSettings above).
+        Login:
+          Type: HttpApi
+          Properties: { ApiId: !Ref Api, Path: /login, Method: POST }
+        Stage:
+          Type: HttpApi
+          Properties: { ApiId: !Ref Api, Path: /stage, Method: GET }
 
   WebBucket:
     Type: AWS::S3::Bucket

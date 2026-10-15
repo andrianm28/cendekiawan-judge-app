@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { DEFAULT_RUN_ORDER } from '../domain/runOrder'
+import { DEFAULT_RUN_ORDER, timerClock } from '../domain/runOrder'
 import { categoryOf, TEAMS, type Team } from '../domain/teams'
 import type { Api, ServerState } from '../sync/api'
 import { Timer } from './Timer'
@@ -14,27 +14,27 @@ const UNIVERSITY: Record<Team['university'], string> = {
 }
 
 /**
- * Audience screen for the projector, opened from the operator board in its own window:
+ * Audience screen for the venue LED, public at /?screen=stage (no login), also opened
+ * from the operator board in its own window:
  * the team on stage, its category, the pitch timer and who is up next. It follows the
  * operator's controls and never shows scores or the leaderboard.
  */
-export function StageScreen({ api, onLogout }: { api: Api; onLogout: () => void }) {
-  const [state, setState] = useState<ServerState | null>(null)
+export function StageScreen({ api }: { api: Api }) {
+  const [state, setState] = useState<Pick<ServerState, 'runOrder' | 'serverTime'> | null>(null)
   const [offline, setOffline] = useState(false)
   const [asked, setAsked] = useState(Date.now())
 
   const refresh = useCallback(async () => {
     const sent = Date.now()
     try {
-      const s = await api.state()
+      const s = await api.stage()
       setState(s)
       setAsked(Math.round((sent + Date.now()) / 2))
       setOffline(false)
-    } catch (e) {
-      if ((e as { status?: number }).status === 401) return onLogout()
+    } catch {
       setOffline(true)
     }
-  }, [api, onLogout])
+  }, [api])
 
   useEffect(() => {
     void refresh()
@@ -62,8 +62,8 @@ export function StageScreen({ api, onLogout }: { api: Api; onLogout: () => void 
         <img src="/brand/cendekiawan-white.png" alt="AWS CendekiAwan" className="stage-logo" />
         <span className="stage-event">Grand Finale of AWS CendekiAwan Bedrock AI Solution</span>
         <span className="stage-partners">
-          <img src="/brand/elitery-white.png" alt="Elitery" />
           <img src="/brand/aws-white.png" alt="AWS" />
+          <img src="/brand/elitery-white.png" alt="Elitery" />
         </span>
       </header>
 
@@ -77,8 +77,8 @@ export function StageScreen({ api, onLogout }: { api: Api; onLogout: () => void 
             {UNIVERSITY[team.university]}
           </p>
           <div className="stage-clock">
-            <Timer startedAt={run.startedAt ? Date.parse(run.startedAt) - offset : null} />
-            <span className="stage-clock-label">{run.startedAt ? '5-minute pitch' : 'Pitch starts soon'}</span>
+            <Timer clock={timerClock(run, offset)} />
+            <span className="stage-clock-label">{!run.startedAt ? 'Pitch starts soon' : run.pausedAt ? 'Paused' : '5-minute pitch'}</span>
           </div>
         </main>
       ) : (
