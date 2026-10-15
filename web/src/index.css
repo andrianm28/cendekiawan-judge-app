@@ -310,6 +310,7 @@ span.timer { display: inline-flex; align-items: center; }
 .stage-bg { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0.28; }
 .stage-screen::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgb(8 14 36 / 0.55), rgb(8 14 36 / 0.9)); pointer-events: none; }
 .stage-screen > * { position: relative; z-index: 1; }
+.stage-screen > .stage-bg { position: absolute; z-index: 0; }
 .stage-top { display: flex; align-items: center; gap: 2vw; padding: 3vh 4vw; border-bottom: 1px solid rgb(255 255 255 / 0.15); }
 .stage-logo { height: 6vh; }
 .stage-event { flex: 1; font-size: 2.2vh; letter-spacing: 0.04em; opacity: 0.85; }
