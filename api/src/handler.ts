@@ -33,6 +33,7 @@ export function makeHandler(service: JudgingService, secret: string) {
       if (method === 'POST' && parts[0] === 'login') return reply(200, await service.login(String(body.pin ?? '')))
 
       const session = auth(event, secret)
+      await service.checkSession(session)
       const route = `${method} /${parts.map((p) => (ROUTE_WORDS.includes(p) ? p : ':')).join('/')}`
       switch (route) {
         case 'GET /state':

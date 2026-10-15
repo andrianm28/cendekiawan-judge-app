@@ -60,6 +60,39 @@ describe('login', () => {
     expect((await call(handler, 'GET', '/state')).status).toBe(401)
     expect((await call(handler, 'GET', '/state', undefined, 'forged.token')).status).toBe(401)
   })
+
+  it('keeps a login for days, so judges can try the app before the event', async () => {
+    const store = memoryStore()
+    await store.putJudges([{ id: 'g1', group: 1, name: 'Ms. Yashinta', pinHash: hashPin('1111') }])
+    let t = Date.parse('2026-10-15T09:00:00Z')
+    const service = new JudgingService(store, SECRET, () => new Date(t))
+    const handler = makeHandler(service, SECRET)
+    const token = (await call(handler, 'POST', '/login', { pin: '1111' })).body.token
+    t = Date.parse('2026-10-20T09:00:00Z')
+    const realNow = Date.now
+    Date.now = () => t
+    try {
+      expect((await call(handler, 'GET', '/state', undefined, token)).status).toBe(200)
+    } finally {
+      Date.now = realNow
+    }
+  })
+
+  it('logs a device out when its PIN is rotated, and only that device', async () => {
+    const { handler } = await setup()
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    const g1 = (await call(handler, 'POST', '/login', { pin: '1111' })).body.token
+    const g2 = (await call(handler, 'POST', '/login', { pin: '2222' })).body.token
+    await call(handler, 'PUT', '/admin/judges/g1', { name: 'Ms. Yashinta' }, admin)
+    expect((await call(handler, 'GET', '/state', undefined, g1)).status).toBe(200)
+
+    await call(handler, 'PUT', '/admin/judges/g1', { pin: '515151' }, admin)
+    expect((await call(handler, 'GET', '/state', undefined, g1)).body.code).toBe('unauthorized')
+    expect((await call(handler, 'PUT', '/scores/t01', { sheet: { d1: 3 }, note: '', status: 'draft', version: 1 }, g1)).status).toBe(401)
+    expect((await call(handler, 'GET', '/state', undefined, g2)).status).toBe(200)
+    const again = (await call(handler, 'POST', '/login', { pin: '515151' })).body.token
+    expect((await call(handler, 'GET', '/state', undefined, again)).status).toBe(200)
+  })
 })
 
 describe('saving scores', () => {

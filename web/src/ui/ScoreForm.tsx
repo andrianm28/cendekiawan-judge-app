@@ -27,9 +27,11 @@ interface Props {
   judge?: Judge
   /** A submitted sheet cannot change (outside the judges' deliberation). */
   submittedFrozen?: boolean
+  /** The next team is already on stage; its sheet opens once this one is submitted. */
+  nextUp?: string
 }
 
-export function ScoreForm({ team, record, locked, onChange, onBack, footer, timer, onStage, judge, submittedFrozen = false }: Props) {
+export function ScoreForm({ team, record, locked, onChange, onBack, footer, timer, onStage, judge, submittedFrozen = false, nextUp }: Props) {
   const sheet = record?.sheet ?? {}
   const complete = isComplete(sheet)
   const submitted = record?.status === 'submitted'
@@ -72,6 +74,11 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer, time
       </label>
 
       <footer className="actions">
+        {nextUp && !submitted && !footer && (
+          <p className="banner next-up" role="alert">
+            <strong>{nextUp} is on stage.</strong> Submit this score first; the next sheet opens after you submit.
+          </p>
+        )}
         {footer ?? (submitted ? (
           <p className="muted submitted-note">
             {locked ? '✓ Submitted.'

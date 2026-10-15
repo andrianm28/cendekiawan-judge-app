@@ -345,3 +345,7 @@ span.timer { display: inline-flex; align-items: center; }
 .drag-grip { touch-action: none; color: var(--muted); font-size: 1.2rem; line-height: 1; padding: 4px 2px; }
 .run-live-tag { color: var(--ok); font-weight: 700; padding: 0 12px; white-space: nowrap; }
 .run-list li.live .run-name::before { content: none; }
+.submit-status { font-weight: 600; }
+.submit-status.ok { color: var(--green); }
+.submit-status.wait { color: #b35c00; }
+.actions .next-up { max-width: 688px; margin: 0 auto 8px; text-align: left; }

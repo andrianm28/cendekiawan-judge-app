@@ -7,7 +7,7 @@ import { canPutOnStage, normalizeRunOrder, sameCategoryLayout, type RunOrder } f
 import { CATEGORIES, categoryOf, TEAMS, type CategoryId } from '../../web/src/domain/teams'
 import { categoryTies, submittedSheets } from '../../web/src/domain/ties'
 import { proposeRanks, rankCategory } from '../../web/src/domain/ranking'
-import { hashPin, signToken, verifyPin, type Session } from './auth'
+import { hashPin, pinKey, signToken, verifyPin, type Session } from './auth'
 import type { Store, StoredScore } from './store'
 
 export class ApiError extends Error {
@@ -22,7 +22,11 @@ export class ApiError extends Error {
   }
 }
 
-const SESSION_HOURS = 12
+/**
+ * A login does not run out before the event, so judges can try the app days ahead.
+ * It ends when the operator gives that judge (or the operator) a new PIN.
+ */
+const SESSION_DAYS = 365
 
 /**
  * An operator correction jumps the sheet's version this far ahead, so taps a tablet
@@ -52,22 +56,30 @@ export class JudgingService {
 
   async login(pin: string) {
     if (!/^\d{4,8}$/.test(pin)) throw new ApiError(401, 'bad_pin', 'Wrong PIN')
-    const exp = Math.floor(this.now().getTime() / 1000) + SESSION_HOURS * 3600
+    const exp = Math.floor(this.now().getTime() / 1000) + SESSION_DAYS * 86400
     const admin = await this.store.getAdminPinHash()
     if (admin && verifyPin(pin, admin)) {
-      return { token: signToken({ role: 'admin', sub: 'admin', exp }, this.secret), role: 'admin' as const }
+      return { token: signToken({ role: 'admin', sub: 'admin', exp, key: pinKey(admin) }, this.secret), role: 'admin' as const }
     }
     for (const j of await this.store.getJudges()) {
       if (verifyPin(pin, j.pinHash)) {
         await this.store.touchPresence(j.id, this.now().toISOString())
         return {
-          token: signToken({ role: 'judge', sub: j.id, exp }, this.secret),
+          token: signToken({ role: 'judge', sub: j.id, exp, key: pinKey(j.pinHash) }, this.secret),
           role: 'judge' as const,
           judge: { id: j.id, group: j.group, name: j.name, title: j.title ?? '' },
         }
       }
     }
     throw new ApiError(401, 'bad_pin', 'Wrong PIN')
+  }
+
+  /** The session's PIN is still the current one; a rotated PIN logs that device out. */
+  async checkSession(s: Session) {
+    const stored = s.role === 'admin'
+      ? await this.store.getAdminPinHash()
+      : (await this.store.getJudges()).find((j) => j.id === s.sub)?.pinHash
+    if (!stored || !s.key || pinKey(stored) !== s.key) throw new ApiError(401, 'unauthorized', 'Please log in again')
   }
 
   /**

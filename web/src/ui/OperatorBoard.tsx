@@ -141,6 +141,14 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
               <span className="eyebrow">On stage</span>
               <strong className="stage-team">{onStage ? `${onStage.order}. ${onStage.appName}` : 'Nobody yet'}</strong>
               {onStage && <span className="muted small">{onStage.teamName} · {onStage.university} · {categoryOf(onStage.category).name}</span>}
+              {onStage && judges.length > 0 && (() => {
+                const waiting = judges.filter((j) => sheetOf(j.id, onStage.id)?.status !== 'submitted')
+                return (
+                  <span className={waiting.length ? 'small submit-status wait' : 'small submit-status ok'}>
+                    {judges.length - waiting.length}/{judges.length} judges submitted{waiting.length ? ` · waiting for ${waiting.map((j) => j.name).join(', ')}` : ' ✓'}
+                  </span>
+                )
+              })()}
             </div>
             <div className="stage-controls">
               <button className="secondary" onClick={() => void setRun(stepCurrent(run, -1))} disabled={!canStepBack(run)}
@@ -161,6 +169,8 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
               <button className="primary compact" onClick={() => {
                 const next = stepCurrent(run, 1).current
                 const leaving = run.current && (!next || TEAMS.find((t) => t.id === next)?.category !== onStage?.category)
+                const waiting = onStage ? judges.filter((j) => sheetOf(j.id, onStage.id)?.status !== 'submitted') : []
+                if (waiting.length && !window.confirm(`${waiting.map((j) => j.name).join(', ')} ${waiting.length === 1 ? 'has' : 'have'} not submitted ${onStage!.appName} yet. Move on anyway? Their tablets stay on this team until they submit.`)) return
                 if (leaving && !window.confirm(`Leave ${categoryOf(onStage!.category).name}? The show cannot come back to this category.`)) return
                 void setRun(stepCurrent(run, 1))
               }}>
