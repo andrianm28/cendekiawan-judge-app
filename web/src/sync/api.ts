@@ -98,6 +98,8 @@ export class Api {
 
   login = (pin: string) => this.call<Session>('POST', '/login', { pin })
   state = () => this.call<ServerState>('GET', '/state')
+  /** Public: what the stage screen shows, no login needed. */
+  stage = () => this.call<Pick<ServerState, 'runOrder' | 'serverTime'>>('GET', '/stage')
   saveScore = (r: Pick<ScoreRecord, 'teamId' | 'sheet' | 'note' | 'status' | 'version'>) =>
     this.call<ServerScore>('PUT', `/scores/${r.teamId}`, { sheet: r.sheet, note: r.note, status: r.status, version: r.version })
   correctScore = (judgeId: string, teamId: string, r: Pick<ScoreRecord, 'sheet' | 'note' | 'status'>, reason: string) =>

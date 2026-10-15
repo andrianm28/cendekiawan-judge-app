@@ -69,6 +69,11 @@ Resources:
         'POST /login':
           ThrottlingRateLimit: 10
           ThrottlingBurstLimit: 20
+        # Public (no login): its own budget so a stage screen left open anywhere cannot
+        # use up the tablets' share.
+        'GET /stage':
+          ThrottlingRateLimit: 10
+          ThrottlingBurstLimit: 20
 
   ApiFunction:
     Type: AWS::Serverless::Function
@@ -89,6 +94,9 @@ Resources:
         Login:
           Type: HttpApi
           Properties: { ApiId: !Ref Api, Path: /login, Method: POST }
+        Stage:
+          Type: HttpApi
+          Properties: { ApiId: !Ref Api, Path: /stage, Method: GET }
 
   WebBucket:
     Type: AWS::S3::Bucket

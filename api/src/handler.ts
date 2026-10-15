@@ -1,6 +1,7 @@
 // API Gateway (HTTP API) entry point.
 //
 //   POST /login                         { pin } → { token, role, judge? }
+//   GET  /stage                         public: running order and pitch timer for the LED screen
 //   GET  /state                         judge: own sheets; admin: everything
 //   PUT  /scores/{teamId}               judge saves a sheet { sheet, note, status, version }
 //   PUT  /ties/{category}               judge who owns the category (or operator) picks a tied winner { teamId }
@@ -31,6 +32,7 @@ export function makeHandler(service: JudgingService, secret: string) {
       if (method === 'OPTIONS') return reply(204, null)
       const body = event.body ? JSON.parse(event.body) : {}
       if (method === 'POST' && parts[0] === 'login') return reply(200, await service.login(String(body.pin ?? '')))
+      if (method === 'GET' && parts.join('/') === 'stage') return reply(200, await service.stage())
 
       const session = auth(event, secret)
       await service.checkSession(session)

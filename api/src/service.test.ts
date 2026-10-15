@@ -61,6 +61,18 @@ describe('login', () => {
     expect((await call(handler, 'GET', '/state', undefined, 'forged.token')).status).toBe(401)
   })
 
+  it('serves the stage screen without a login, with no judges or scores', async () => {
+    const { handler } = await setup()
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    await call(handler, 'PUT', '/admin/runorder', { current: 't01', timer: 'start' }, admin)
+    const r = await call(handler, 'GET', '/stage')
+    expect(r.status).toBe(200)
+    expect(r.body.runOrder).toMatchObject({ current: 't01' })
+    expect(r.body.runOrder.startedAt).toBeTruthy()
+    expect(Object.keys(r.body).sort()).toEqual(['runOrder', 'serverTime'])
+    expect(JSON.stringify(r.body)).not.toMatch(/judge|score|Yashinta/i)
+  })
+
   it('keeps a login for days, so judges can try the app before the event', async () => {
     const store = memoryStore()
     await store.putJudges([{ id: 'g1', group: 1, name: 'Ms. Yashinta', pinHash: hashPin('1111') }])

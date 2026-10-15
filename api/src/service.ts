@@ -83,6 +83,18 @@ export class JudgingService {
   }
 
   /**
+   * The public stage screen (shown on the venue LED, no login): the running order and
+   * the pitch timer only. No judges, scores or ties.
+   */
+  async stage() {
+    const r = normalizeRunOrder(await this.store.getRunOrder())
+    return {
+      runOrder: { order: r.order, current: r.current, startedAt: r.startedAt, pausedAt: r.pausedAt, pausedMs: r.pausedMs },
+      serverTime: this.now().toISOString(),
+    }
+  }
+
+  /**
    * Everything a screen needs in one call. Judges get their own sheets, the running
    * order, and any tie in the category they own (averages only, not other judges'
    * sheets); the admin gets everything.
