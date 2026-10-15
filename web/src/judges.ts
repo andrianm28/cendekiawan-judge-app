@@ -1,5 +1,5 @@
-// Five judges; each scores every team and owns one category for tie-breaks (rundown
-// UM, "Judges" column). Groups 3 and 4 have no name yet; the operator fills them in.
+// Five judges; each scores every team and owns one category for tie-breaks
+// (list confirmed by the committee on 15 Oct 2026).
 export interface Judge {
   id: string
   group: number
@@ -9,9 +9,9 @@ export interface Judge {
 }
 
 export const JUDGES: Judge[] = [
-  { id: 'g1', group: 1, name: 'Mba Yashinta' },
-  { id: 'g2', group: 2, name: 'Pak Kresna', title: 'President Director, Elitery' },
-  { id: 'g3', group: 3, name: 'Judge Group 3' },
-  { id: 'g4', group: 4, name: 'Judge Group 4' },
-  { id: 'g5', group: 5, name: 'Pak Ruslan' },
+  { id: 'g1', group: 1, name: 'Ms. Yashinta', title: 'AWS' },
+  { id: 'g2', group: 2, name: 'Mr. Kresna', title: 'President Director, Elitery' },
+  { id: 'g3', group: 3, name: 'Mr. Daniel Zhang', title: 'AWS' },
+  { id: 'g4', group: 4, name: 'Mr. Aizek Zulkifli', title: 'AWS' },
+  { id: 'g5', group: 5, name: 'Mr. Ruslan', title: 'IlokenElitery' },
 ]
