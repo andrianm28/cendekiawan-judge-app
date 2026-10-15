@@ -38,7 +38,7 @@ export const SEGMENTS: Segment[] = [
         key: 'd1', code: 'D1', name: 'Real problem', weight: '10%',
         question: 'Is it a real problem for real people?',
         levels: {
-          1: 'No clear problem',
+          1: 'No problem stated, only the app',
           2: 'A problem, but vague: unclear what it is or who has it',
           3: 'Clear problem and clear users',
           4: 'Level 3, plus evidence it matters now (a number, a real story, or what users said)',
@@ -53,7 +53,7 @@ export const SEGMENTS: Segment[] = [
         key: 'd3', code: 'D3', name: 'Fresh idea', weight: '10%',
         question: 'How new is the idea, and does it really need AI?',
         levels: {
-          1: 'A basic chatbot or sample app, little changed',
+          1: 'A copy of a tutorial or sample app, little changed',
           2: 'A common idea, done fine',
           3: 'A common idea used in a smart new way, and AI is really needed',
           4: 'Original and clearly different from existing apps, with AI at its heart',
@@ -69,9 +69,9 @@ export const SEGMENTS: Segment[] = [
         question: 'Does the app work, with its AI (Amazon Bedrock) doing real work?',
         levels: {
           1: 'Main feature not shown working',
-          2: 'Worked, but with visible errors or gaps',
+          2: 'Worked, but parts broke or were skipped',
           3: 'Worked from start to end, and the AI does real work',
-          4: 'Level 3, and looks ready for real users today',
+          4: 'Level 3, and polished: smooth, quick, no glitches',
         },
       },
       {
@@ -90,7 +90,7 @@ export const SEGMENTS: Segment[] = [
         levels: {
           1: 'Failed, or gave no useful answer',
           2: 'Only one input shown, or some answers wrong or weak',
-          3: '2–3 different inputs, good answers each time',
+          3: 'At least 2–3 different inputs, good answers each time',
           4: 'Level 3, plus it handled a tricky, unusual or unsafe input well',
         },
       },
@@ -116,7 +116,7 @@ export const SEGMENTS: Segment[] = [
           1: 'Only a school exercise',
           2: 'Useful, but not ready for real use yet',
           3: 'Ready for a real organisation or community to use',
-          4: 'Level 3, plus a named real organisation that wants to use it',
+          4: 'Level 3, plus a named real organisation that could pilot it, and why it fits them',
         },
       },
       {
@@ -126,7 +126,7 @@ export const SEGMENTS: Segment[] = [
           1: 'Not mentioned',
           2: 'Said it can grow, no reason given',
           3: 'Named who else would use it, or a partial plan',
-          4: 'A clear plan to grow, covering at least two of: cost, data, number of users',
+          4: 'A clear plan to grow, covering at least two of: rough cost, number of users, new places to use it',
         },
       },
     ],
@@ -139,7 +139,7 @@ export const SEGMENTS: Segment[] = [
         question: 'Was the pitch clear and easy to follow?',
         levels: {
           1: 'Hard to follow',
-          2: 'Said what it does, not why it matters',
+          2: 'Could follow, but jumped around or ran over time',
           3: 'Easy to follow, in a logical order, within time',
           4: 'Level 3, and memorable: I could repeat their main point',
         },
