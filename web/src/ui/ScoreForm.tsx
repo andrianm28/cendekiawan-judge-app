@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import type { TimerClock } from '../domain/runOrder'
 import { DEMO, LEVEL_NAMES, SOLUTION, type Criterion } from '../domain/rubric'
 import { c1, c2, finalScore, isComplete, type Level, type PartialSheet } from '../domain/scoring'
 import { categoryOf, type Team } from '../domain/teams'
@@ -18,18 +19,23 @@ interface Props {
   onBack: () => void
   /** Replaces the submit bar, e.g. with the operator's correction form. */
   footer?: ReactNode
-  /** Pitch timer start set by the operator (this tablet's clock); omit for the judge's own timer. */
-  timerStartedAt?: number | null
+  /** Pitch timer set by the operator (this tablet's clock); omit for the judge's own timer. */
+  timer?: TimerClock | null
   /** This team is on stage now. */
   onStage?: boolean
   /** Who is scoring on this tablet; shown so tablets are not swapped. */
   judge?: Judge
+  /** A submitted sheet cannot change (outside the judges' deliberation). */
+  submittedFrozen?: boolean
 }
 
-export function ScoreForm({ team, record, locked, onChange, onBack, footer, timerStartedAt, onStage, judge }: Props) {
+export function ScoreForm({ team, record, locked, onChange, onBack, footer, timer, onStage, judge, submittedFrozen = false }: Props) {
   const sheet = record?.sheet ?? {}
   const complete = isComplete(sheet)
   const submitted = record?.status === 'submitted'
+  const frozen = locked || (submitted && submittedFrozen)
+  // Changing a submitted sheet makes it a draft again, so the judge submits it again.
+  const edit = (change: { sheet?: PartialSheet; note?: string }) => onChange(submitted ? { ...change, status: 'draft' } : change)
 
   return (
     <div className="screen">
@@ -39,7 +45,7 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer, time
           <strong>{team.appName}</strong>
           <span className="sub">{onStage && <span className="on-stage">● On stage</span>}{team.teamName} · {team.university} · {categoryOf(team.category).name}</span>
         </div>
-        <Timer startedAt={timerStartedAt} />
+        <Timer clock={timer} />
         <div className="final" aria-live="polite">
           <span className="final-num">{complete ? finalScore(sheet) : '–'}</span>
           <span className="sub small">/100</span>
@@ -50,24 +56,28 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer, time
       {locked && <p className="banner">This category is closed. Ask the operator to change a score.</p>}
 
       <Section title="Solution" subtitle={complete ? `C1 ${c1(sheet)}` : '50%'}
-        criteria={SOLUTION} sheet={sheet} disabled={locked} onPick={(k, l) => onChange({ sheet: { [k]: l } })} />
-      <Section title="Live Demo" subtitle={complete ? `C2 ${c2(sheet)}` : '50%'}
-        criteria={DEMO} sheet={sheet} disabled={locked} onPick={(k, l) => onChange({ sheet: { [k]: l } })} />
+        criteria={SOLUTION} sheet={sheet} disabled={frozen} onPick={(k, l) => edit({ sheet: { [k]: l } })} />
+      <Section title="Demo Video" subtitle={complete ? `C2 ${c2(sheet)}` : '50%'}
+        criteria={DEMO} sheet={sheet} disabled={frozen} onPick={(k, l) => edit({ sheet: { [k]: l } })} />
 
       <label className="note">
         <span>Note (optional, one sentence)</span>
         <input
           type="text"
           defaultValue={record?.note ?? ''}
-          disabled={locked}
+          disabled={frozen}
           maxLength={200}
-          onBlur={(e) => e.target.value !== (record?.note ?? '') && onChange({ note: e.target.value })}
+          onBlur={(e) => e.target.value !== (record?.note ?? '') && edit({ note: e.target.value })}
         />
       </label>
 
       <footer className="actions">
         {footer ?? (submitted ? (
-          <p className="muted">Submitted. You can still change scores until the category is closed.</p>
+          <p className="muted submitted-note">
+            {locked ? '✓ Submitted.'
+              : submittedFrozen ? '✓ Submitted and locked. Scores can be changed only during the judges\' deliberation.'
+              : '✓ Submitted. To change it, tap a new level, then press Submit again.'}
+          </p>
         ) : (
           <button className="primary" disabled={!complete || locked} onClick={() => onChange({ status: 'submitted' })}>
             {complete ? 'Submit score' : `Score all 9 criteria (${Object.keys(sheet).length}/9)`}

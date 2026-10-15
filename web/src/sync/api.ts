@@ -106,7 +106,7 @@ export class Api {
     this.call<{ closedGroups: number[] }>('POST', `/admin/groups/${group}`, { closed })
   updateJudge = (id: string, change: { name?: string; title?: string; group?: number; pin?: string }) => this.call<Judge>('PUT', `/admin/judges/${id}`, change)
   pickTieWinner = (category: CategoryId, teamId: string) => this.call<TieBreak>('PUT', `/ties/${category}`, { teamId })
-  putRunOrder = (body: { order?: string[]; current?: string | null; timer?: 'start' | 'reset' }) =>
+  putRunOrder = (body: { order?: string[]; current?: string | null; timer?: 'start' | 'reset' | 'pause' | 'resume'; deliberation?: boolean }) =>
     this.call<RunOrder>('PUT', '/admin/runorder', body)
   resetEventData = () => this.call<{ epoch: string; scores: number }>('POST', '/admin/reset', { confirm: 'RESET' })
   putDeliberation = (d: Deliberation) => this.call<Deliberation>('PUT', '/admin/deliberation', d)

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { DEFAULT_RUN_ORDER } from '../domain/runOrder'
+import { DEFAULT_RUN_ORDER, timerClock } from '../domain/runOrder'
 import { categoryOf, TEAMS, type Team } from '../domain/teams'
 import type { Api, Session } from '../sync/api'
 import { syncJudge, type SyncResult } from '../sync/sync'
@@ -86,7 +86,6 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
   }
   if (team) {
     const onStage = team.id === runOrder.current
-    const started = onStage && runOrder.startedAt ? Date.parse(runOrder.startedAt) - (sync?.clockOffset ?? 0) : null
     return (
       <ScoreForm
         key={`${team.id}-${epoch}`}
@@ -95,7 +94,8 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
         locked={closed(team)}
         onStage={onStage}
         judge={judge}
-        timerStartedAt={started}
+        timer={onStage ? timerClock(runOrder, sync?.clockOffset ?? 0) : null}
+        submittedFrozen={!runOrder.deliberation}
         onChange={(change) => void save(judge.id, team.id, change).then(() => round())}
         onBack={() => setTeam(null)}
       />

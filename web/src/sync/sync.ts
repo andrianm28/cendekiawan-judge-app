@@ -46,10 +46,11 @@ export async function syncJudge(api: Api, store: ScoreStore, judgeId: string): P
         await store.markSynced(judgeId, r.teamId, r.version)
       } catch (e) {
         if (!(e instanceof ApiError)) throw e
-        // 409: the server holds a newer copy; 423: category closed. Either way the
-        // server copy wins (below, or on the next round).
-        if (e.status === 409 && e.current && (await store.adopt(e.current as ServerScore, true))) replaced.push(r.teamId)
-        else if (e.status !== 423) throw e
+        // 409: the server holds a newer copy; 423: category closed, or the sheet was
+        // submitted and the deliberation is not open. Either way the server copy wins
+        // (here, or below for a closed category).
+        if ((e.status === 409 || e.status === 423) && e.current && (await store.adopt(e.current as ServerScore, true))) replaced.push(r.teamId)
+        else if (e.status !== 409 && e.status !== 423) throw e
       }
     }
     const judge = state.judges.find((j) => j.id === judgeId)
@@ -57,8 +58,10 @@ export async function syncJudge(api: Api, store: ScoreStore, judgeId: string): P
       const t = TEAMS.find((x) => x.id === teamId)
       return !!t && closedGroups.includes(categoryOf(t.category).group)
     }
+    const editable = !!state.runOrder?.deliberation && !state.locked
     for (const s of state.scores) {
-      if (await store.adopt(s, closed(s.teamId))) replaced.push(s.teamId)
+      const frozen = closed(s.teamId) || (s.status === 'submitted' && !editable)
+      if (await store.adopt(s, frozen)) replaced.push(s.teamId)
     }
     const waiting = (await store.listForJudge(judgeId)).filter((x) => !x.synced).length
     return {

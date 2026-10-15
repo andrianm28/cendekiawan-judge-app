@@ -4,15 +4,17 @@ import { categoryOf, TEAMS } from '../domain/teams'
 
 /**
  * The running order as a drag-and-drop list. Grab anywhere on a row and drop it where
- * the team should present; the new order is saved on drop. On touch screens the grip
+ * the team should present, inside its own category; the new order is saved on drop. On touch screens the grip
  * starts the drag so the page can still scroll. A focused row moves with the arrow keys.
  */
-export function RunOrderList({ run, scored, judges, onReorder, onStage }: {
+export function RunOrderList({ run, scored, judges, onReorder, onStage, canStage = () => true }: {
   run: RunOrder
   scored: (teamId: string) => number
   judges: number
   onReorder: (order: string[]) => void
   onStage: (teamId: string) => void
+  /** False for teams in a category the show has already left. */
+  canStage?: (teamId: string) => boolean
 }) {
   const [order, setOrder] = useState(run.order)
   const [dragging, setDragging] = useState<string | null>(null)
@@ -88,7 +90,9 @@ export function RunOrderList({ run, scored, judges, onReorder, onStage }: {
             <span className="run-name"><strong>{t.appName}</strong> <span className="muted small">{categoryOf(t.category).name} · {scored(id)}/{judges} scored</span></span>
             {id === run.current
               ? <span className="run-live-tag">● On stage</span>
-              : <button className="secondary" onClick={() => onStage(id)}>On stage</button>}
+              : canStage(id)
+                ? <button className="secondary" onClick={() => onStage(id)}>On stage</button>
+                : <span className="muted small run-done">Category done</span>}
           </li>
         )
       })}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EMPTY_DELIBERATION } from '../domain/deliberation'
-import { DEFAULT_RUN_ORDER, stepCurrent } from '../domain/runOrder'
+import { canPutOnStage, canStepBack, DEFAULT_RUN_ORDER, stepCurrent, timerClock } from '../domain/runOrder'
 import { averagedFinal, finalScore, isComplete, type PartialSheet, type ScoreSheet } from '../domain/scoring'
 import { CATEGORIES, categoryOf, TEAMS, type Team } from '../domain/teams'
 import type { TieSummary } from '../domain/ties'
@@ -143,28 +143,52 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
               {onStage && <span className="muted small">{onStage.teamName} · {onStage.university} · {categoryOf(onStage.category).name}</span>}
             </div>
             <div className="stage-controls">
-              <button className="secondary" onClick={() => void setRun(stepCurrent(run, -1))} disabled={!run.current}>‹ Previous</button>
+              <button className="secondary" onClick={() => void setRun(stepCurrent(run, -1))} disabled={!canStepBack(run)}
+                title={run.current && !canStepBack(run) ? 'The previous category has finished; the show does not go back to it' : undefined}>‹ Previous</button>
               {onStage && (
                 <span className="stage-timer">
-                  <Timer startedAt={run.startedAt ? Date.parse(run.startedAt) - offset : null} />
+                  <Timer clock={timerClock(run, offset)} />
+                  {run.startedAt && (
+                    <button className="secondary" onClick={() => void setRun({ timer: run.pausedAt ? 'resume' : 'pause' })}>
+                      {run.pausedAt ? '▶ Resume' : '⏸ Pause'}
+                    </button>
+                  )}
                   <button className="secondary" onClick={() => void setRun({ timer: run.startedAt ? 'reset' : 'start' })}>
                     {run.startedAt ? 'Reset timer' : 'Start timer'}
                   </button>
                 </span>
               )}
-              <button className="primary compact" onClick={() => void setRun(stepCurrent(run, 1))}>
+              <button className="primary compact" onClick={() => {
+                const next = stepCurrent(run, 1).current
+                const leaving = run.current && (!next || TEAMS.find((t) => t.id === next)?.category !== onStage?.category)
+                if (leaving && !window.confirm(`Leave ${categoryOf(onStage!.category).name}? The show cannot come back to this category.`)) return
+                void setRun(stepCurrent(run, 1))
+              }}>
                 {!run.current ? 'Start with first team ›' : run.order.indexOf(run.current) === run.order.length - 1 ? 'Finish ›' : 'Next team ›'}
               </button>
+            </div>
+            <div className="row deliberation-toggle">
+              <span className="muted small">
+                {run.deliberation
+                  ? <><strong>Judges' deliberation is open.</strong> Judges can change submitted scores; a changed sheet must be submitted again.</>
+                  : 'Submitted scores are locked on the tablets. Open the judges\' deliberation to let judges change them.'}
+              </span>
+              <button className={run.deliberation ? 'secondary' : 'secondary danger'} onClick={() => {
+                if (run.deliberation || window.confirm('Open the judges\' deliberation? Judges will be able to change scores they already submitted.')) {
+                  void setRun({ deliberation: !run.deliberation })
+                }
+              }}>{run.deliberation ? 'Close deliberation' : 'Open deliberation'}</button>
             </div>
             <p className="muted small">Judges' tablets open the team on stage and show this timer. Judges only score. <strong>Stage screen ↗</strong> opens the projector view (team, timer, up next; no scores): drag it to the projector and double-click for full screen.</p>
             <details className="run-order">
               <summary>Running order</summary>
-              <p className="muted small">Drag a team to change the order. Judges' tablets follow it.</p>
+              <p className="muted small">Drag a team to change the order inside its category. Judges' tablets follow it.</p>
               <RunOrderList
                 run={run}
                 judges={judges.length}
                 scored={(id) => judges.filter((j) => sheetOf(j.id, id)?.status === 'submitted').length}
                 onReorder={(order) => void setRun({ order })}
+                canStage={(id) => canPutOnStage(run, id)}
                 onStage={(id) => void setRun({ current: id })}
               />
             </details>
@@ -234,10 +258,11 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
                             <td><strong>{t.appName}</strong> <span className="muted small">{t.university}</span></td>
                             {judges.map((j) => {
                               const r = sheetOf(j.id, t.id)
-                              const label = !r ? '–' : r.status === 'submitted' && isComplete(r.sheet) ? String(finalScore(r.sheet)) : 'draft'
+                              // A draft shows what the judge has picked so far: its score once all 9 are in, else how many.
+                              const label = !r ? '–' : isComplete(r.sheet) ? String(finalScore(r.sheet)) : `${Object.keys(r.sheet).length}/9`
                               return (
                                 <td key={j.id} className="num">
-                                  <button className={`cell ${!r ? 'empty' : r.status}`} title={r ? `Correct ${j.name}'s score` : `Enter ${j.name}'s paper sheet`}
+                                  <button className={`cell ${!r ? 'empty' : r.status}`} title={!r ? `Enter ${j.name}'s paper sheet` : r.status === 'submitted' ? `Correct ${j.name}'s score` : `${j.name} is still scoring (draft, not submitted)`}
                                     onClick={() => setView({ kind: 'correct', judge: j, team: t })}>{label}</button>
                                 </td>
                               )

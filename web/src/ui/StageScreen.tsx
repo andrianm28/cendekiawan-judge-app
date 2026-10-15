@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { DEFAULT_RUN_ORDER } from '../domain/runOrder'
+import { DEFAULT_RUN_ORDER, timerClock } from '../domain/runOrder'
 import { categoryOf, TEAMS, type Team } from '../domain/teams'
 import type { Api, ServerState } from '../sync/api'
 import { Timer } from './Timer'
@@ -62,8 +62,8 @@ export function StageScreen({ api, onLogout }: { api: Api; onLogout: () => void 
         <img src="/brand/cendekiawan-white.png" alt="AWS CendekiAwan" className="stage-logo" />
         <span className="stage-event">Grand Finale of AWS CendekiAwan Bedrock AI Solution</span>
         <span className="stage-partners">
-          <img src="/brand/elitery-white.png" alt="Elitery" />
           <img src="/brand/aws-white.png" alt="AWS" />
+          <img src="/brand/elitery-white.png" alt="Elitery" />
         </span>
       </header>
 
@@ -77,8 +77,8 @@ export function StageScreen({ api, onLogout }: { api: Api; onLogout: () => void 
             {UNIVERSITY[team.university]}
           </p>
           <div className="stage-clock">
-            <Timer startedAt={run.startedAt ? Date.parse(run.startedAt) - offset : null} />
-            <span className="stage-clock-label">{run.startedAt ? '5-minute pitch' : 'Pitch starts soon'}</span>
+            <Timer clock={timerClock(run, offset)} />
+            <span className="stage-clock-label">{!run.startedAt ? 'Pitch starts soon' : run.pausedAt ? 'Paused' : '5-minute pitch'}</span>
           </div>
         </main>
       ) : (
