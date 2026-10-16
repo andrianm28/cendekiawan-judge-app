@@ -39,7 +39,10 @@ export function TeamList({ judge, teams, records, onOpen, onLogout, current, sta
           <span className="sub">{done} of {teams.length} submitted · up to 5 minutes each</span>
         </div>
         {status}
-        <button className="link" onClick={onLogout}>Log out</button>
+        <button className="link" onClick={() => {
+          const unsent = records.filter((r) => r.judgeId === judge.id && !r.synced).length
+          if (!unsent || window.confirm(`${unsent} ${unsent === 1 ? 'score has' : 'scores have'} not reached the server yet. If you log out now ${unsent === 1 ? 'it stays' : 'they stay'} on this tablet until you log in here again. Log out anyway?`)) onLogout()
+        }}>Log out</button>
       </Header>
       <JudgeBadge judge={judge} />
       {notice}

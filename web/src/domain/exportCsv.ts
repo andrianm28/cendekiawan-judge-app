@@ -15,7 +15,8 @@ export interface ScoreRow {
 }
 
 const cell = (v: string | number): string => {
-  const s = String(v)
+  // A text cell starting with = + - @ (or a tab/CR) would run as a formula in Excel or Sheets.
+  const s = typeof v === 'string' && /^[=+\-@\t\r]/.test(v) ? `'${v}` : String(v)
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 const toCsv = (rows: (string | number)[][]) => rows.map((r) => r.map(cell).join(',')).join('\r\n') + '\r\n'

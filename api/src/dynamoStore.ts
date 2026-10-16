@@ -7,7 +7,10 @@ import { randomUUID } from 'node:crypto'
 import type { Deliberation } from '../../web/src/domain/deliberation'
 import type { RunOrder } from '../../web/src/domain/runOrder'
 import type { TieBreak } from '../../web/src/domain/ties'
-import type { AuditEntry, JudgeAccount, Store, StoredScore } from './store'
+import type { AuditEntry, JudgeAccount, LoginFailures, Store, StoredScore } from './store'
+
+/** Sort key of the shared wrong-PIN counter (a count and a window start, no PINs). */
+const WRONG_PINS = 'wrong-pin-count'
 
 export function dynamoStore(table: string, client = DynamoDBDocumentClient.from(new DynamoDBClient({}))): Store {
   const get = async <T>(pk: string, sk: string) =>
@@ -65,6 +68,8 @@ export function dynamoStore(table: string, client = DynamoDBDocumentClient.from(
     putTieBreak: (category, p) => put('TIE', category, { ...p, category }),
     getAbsent: async () => (await query<{ judgeId: string; absent: boolean }>('ABSENT')).filter((a) => a.absent).map((a) => a.judgeId).sort(),
     setAbsent: (judgeId, absent) => put('ABSENT', judgeId, { judgeId, absent }),
+    getLoginFailures: () => get<LoginFailures>('META', WRONG_PINS),
+    putLoginFailures: (f) => put('META', WRONG_PINS, f),
     archive: (epoch, snapshot) => put('ARCHIVE', epoch, JSON.stringify(snapshot)),
     touchPresence: (j, at) => put('PRESENCE', j, { judgeId: j, at }),
     getPresence: async () => Object.fromEntries((await query<{ judgeId: string; at: string }>('PRESENCE')).map((p) => [p.judgeId, p.at])),

@@ -24,6 +24,12 @@ export interface JudgeAccount {
   pinHash: string
 }
 
+export interface LoginFailures {
+  /** Start of the counting window, ms since epoch. */
+  since: number
+  count: number
+}
+
 export interface AuditEntry {
   at: string
   actor: string
@@ -57,6 +63,10 @@ export interface Store {
   getAbsent(): Promise<string[]>
   setAbsent(judgeId: string, absent: boolean): Promise<void>
 
+  /** Wrong PINs in the current window, shared by every Lambda instance. */
+  getLoginFailures(): Promise<LoginFailures | undefined>
+  putLoginFailures(f: LoginFailures): Promise<void>
+
   /** Keep a copy of the event data before a reset, so a mistaken reset can be recovered. */
   archive(epoch: string, snapshot: Record<string, unknown>): Promise<void>
 
@@ -86,6 +96,7 @@ export function memoryStore(): Store {
   let presence: Record<string, string> = {}
   const absent = new Set<string>()
   const archives = new Map<string, Record<string, unknown>>()
+  let failures: LoginFailures | undefined
   const audit: AuditEntry[] = []
   let epoch: string | null = null
   const clone = <T>(x: T): T => structuredClone(x)
@@ -108,6 +119,8 @@ export function memoryStore(): Store {
     getAbsent: async () => [...absent].sort(),
     setAbsent: async (j, a) => void (a ? absent.add(j) : absent.delete(j)),
     archive: async (e, snap) => void archives.set(e, clone(snap)),
+    getLoginFailures: async () => clone(failures),
+    putLoginFailures: async (f) => void (failures = clone(f)),
     touchPresence: async (j, at) => void (presence[j] = at),
     getPresence: async () => ({ ...presence }),
     appendAudit: async (e) => void audit.push(clone(e)),

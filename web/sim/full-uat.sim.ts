@@ -10,7 +10,7 @@ import { signToken } from '../../api/src/auth'
 import { applyOrder, moveRank, EMPTY_DELIBERATION, lock } from '../src/domain/deliberation'
 import { announcementOrder, proposeRanks, rankCategory } from '../src/domain/ranking'
 import { elapsedSeconds, timerClock, stepCurrent, normalizeRunOrder } from '../src/domain/runOrder'
-import { CRITERIA, FINAL_SCALE, finalScaled, finalScore, WEIGHTS, type Level, type ScoreSheet } from '../src/domain/scoring'
+import { CRITERIA, finalScaled, finalScore, WEIGHTS, type Level, type ScoreSheet } from '../src/domain/scoring'
 import { SEGMENTS } from '../src/domain/rubric'
 import { CATEGORIES, TEAMS } from '../src/domain/teams'
 import { submittedSheets } from '../src/domain/ties'
@@ -335,7 +335,7 @@ describe('full UAT', () => {
     record('S03', 'Score validation rejects bad levels, unknown criteria (incl. old V3), long notes, bad status/version (400)',
       want400.every((k) => ev[k].startsWith('400')) && ev.note200 === '200' && ev.unknownTeam === '404 not_found' && ev.loginPinNumber.startsWith('200') && ev.loginShort === '401 bad_pin', ev)
     const crash = (['sheetNull', 'bodyNull', 'bodyArray', 'loginBodyNull'] as const).filter((k) => ev[k].startsWith('500'))
-    record('W03', 'Malformed bodies (null sheet, null/array body) answer 500 instead of 400', crash.length === 0, { answered500: crash.map((k) => `${k}: ${ev[k]}`) })
+    record('W03', 'Malformed bodies (null sheet, null/array body) get 400, not 500', crash.length === 0, { answered500: crash.map((k) => `${k}: ${ev[k]}`) })
     await srv.close()
   }, 30_000)
 
@@ -354,13 +354,14 @@ describe('full UAT', () => {
     record('S04', 'PIN change: old tablet logged out on next sync, old PIN refused, duplicate/operator/short PIN refused, PIN never in log',
       before === 200 && taken === '409 pin_taken' && asAdmin === '409 pin_taken' && short === '400 bad_pin' && rotated === 200 && after === '401 unauthorized' && tablets[0].last?.error === 'unauthorized' && oldPin === '401 bad_pin' && newPin === 200 && !auditHasPin,
       { before, taken, asAdmin, short, rotated, oldDeviceAfter: after, tabletRound: tablets[0].last?.error, oldPin, newPin, auditHasPin })
-    // Brute force: PINs are 6 digits for judges (8 for the operator); API Gateway allows 10 logins/s.
-    const space = 1e6
-    const hoursToFindAnyJudge = space / 5 / 10 / 3600 / 2
-    record('S05', 'PIN guessing exposure (no lockout; throttle only)', 'info', {
-      loginThrottle: '10 req/s, burst 20 (template.yaml)', lockoutAfterFailures: 'none',
-      expectedHoursToGuessSomeJudgePinAt10PerSecond: +hoursToFindAnyJudge.toFixed(1),
-      note: 'Rotating every PIN on the event morning (planned) limits the window to the event day; a stolen judge PIN can only score as that judge',
+    // Brute force: 6-digit PINs, 10 logins/s at API Gateway, and now a shared limit of wrong PINs.
+    const tries: (number | string)[] = []
+    for (let i = 0; i < 22; i++) tries.push(await status(new Api(srv.base).login(String(300000 + i))))
+    const firstBlocked = tries.findIndex((x) => x === '429 too_many_tries')
+    const loggedInStillWorks = await status(tablets[1].api.state())
+    record('S05', 'PIN guessing: wrong PINs pause every login for 15 min; logged-in tablets keep working', firstBlocked > 0 && loggedInStillWorks === 200, {
+      wrongPinsBeforePause: firstBlocked, loggedInStillWorks, guessesPerDayAtMost: Math.round(20 * 4 * 24),
+      note: 'At most ~1,900 guesses a day against 1,000,000 PINs; rotating PINs on the event morning (planned) still applies',
     })
     await srv.close()
   }, 30_000)
@@ -377,7 +378,7 @@ describe('full UAT', () => {
     }
     await t.round()
     const server = (await srv.store.listScores()).map((s) => s.teamId)
-    record('W04', 'One refused sheet (e.g. an old-rubric V3 sheet) blocks every other sheet on that tablet', server.includes('t02') && server.includes('t03') && t.last?.online === true,
+    record('W04', 'One refused sheet (e.g. an old-rubric V3 sheet) does not block the other sheets on the tablet', server.includes('t02') && server.includes('t03') && t.last?.online === true,
       { serverHas: server, tabletShows: t.last?.online ? `online, ${t.last.waiting} waiting` : `Offline (${t.last?.error})`, waiting: t.last?.waiting })
     await srv.close()
   }, 30_000)

@@ -25,6 +25,8 @@ export interface SyncResult {
   reset?: boolean
   /** The operator marked this judge absent: their scores no longer count. */
   absent?: boolean
+  /** The result is locked: every sheet is frozen. */
+  locked?: boolean
   /** Sheets the server refused as invalid; they stay on the tablet and the rest keep syncing. */
   rejected?: number
   error?: string
@@ -79,7 +81,7 @@ export async function syncJudge(api: Api, store: ScoreStore, judgeId: string): P
     const waiting = (await store.listForJudge(judgeId)).filter((x) => !x.synced).length
     return {
       online: true, waiting, closedGroups, judge, replaced: [...new Set(replaced)], reset,
-      runOrder: state.runOrder, clockOffset, ties: state.ties, absent: state.absent === true, rejected,
+      runOrder: state.runOrder, clockOffset, ties: state.ties, absent: state.absent === true, locked: state.locked === true, rejected,
     }
   } catch (e) {
     const waiting = (await store.listForJudge(judgeId)).filter((x) => !x.synced).length

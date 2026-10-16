@@ -20,7 +20,9 @@ export function Login({ api, onLogin }: { api: Api; onLogin: (s: Session) => voi
     try {
       onLogin(await api.login(pin))
     } catch (e) {
-      setError(e instanceof ApiError && e.status === 401 ? 'Wrong PIN. Try again.' : 'Cannot reach the server. Check the Wi-Fi and try again.')
+      setError(e instanceof ApiError && e.status === 401 ? 'Wrong PIN. Try again.'
+        : e instanceof ApiError && e.code === 'too_many_tries' ? e.message
+        : 'Cannot reach the server. Check the Wi-Fi and try again.')
       setPin('')
     } finally {
       setBusy(false)

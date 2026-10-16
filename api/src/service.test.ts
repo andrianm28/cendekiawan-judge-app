@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { hashPin } from './auth'
 import { makeHandler } from './handler'
-import { ApiError, CORRECTION_STEP, JudgingService } from './service'
+import { ApiError, CORRECTION_STEP, JudgingService, LOGIN_MAX_FAILURES } from './service'
 import { memoryStore } from './store'
 import { CATEGORIES, TEAMS } from '../../web/src/domain/teams'
 import { proposeRanks, rankCategory } from '../../web/src/domain/ranking'
@@ -493,5 +493,23 @@ describe('guards found in the 16 Oct UAT', () => {
       expect((await call(handler, 'PUT', '/scores/t01', body, judge)).status).toBe(400)
     }
     expect((await call(handler, 'POST', '/login', null)).status).toBe(400)
+  })
+})
+
+describe('PIN guessing', () => {
+  it('pauses every login after too many wrong PINs, keeps logged-in devices working, and reopens after the window', async () => {
+    const store = memoryStore()
+    await store.putJudges([{ id: 'g1', group: 1, name: 'J1', pinHash: hashPin('111111') }])
+    let t = Date.parse('2026-10-20T01:00:00Z')
+    const service = new JudgingService(store, SECRET, () => new Date(t))
+    const handler = makeHandler(service, SECRET)
+    const tok = (await call(handler, 'POST', '/login', { pin: '111111' })).body.token
+    for (let i = 0; i < LOGIN_MAX_FAILURES; i++) expect((await call(handler, 'POST', '/login', { pin: String(200000 + i) })).status).toBe(401)
+    const blocked = await call(handler, 'POST', '/login', { pin: '111111' })
+    expect(blocked.status).toBe(429)
+    expect(blocked.body.code).toBe('too_many_tries')
+    expect((await call(handler, 'GET', '/state', undefined, tok)).status).toBe(200)
+    t += 16 * 60_000
+    expect((await call(handler, 'POST', '/login', { pin: '111111' })).status).toBe(200)
   })
 })

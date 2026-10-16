@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { DEFAULT_RUN_ORDER, timerClock } from '../domain/runOrder'
+import { DEFAULT_RUN_ORDER, showFinished, timerClock } from '../domain/runOrder'
 import { categoryOf, TEAMS, type Team } from '../domain/teams'
 import type { Api, Session } from '../sync/api'
 import { syncJudge, type SyncResult } from '../sync/sync'
@@ -58,7 +58,8 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
   const submittedHere = (teamId: string) =>
     records.some((r) => r.teamId === teamId && r.judgeId === judge.id && r.status === 'submitted')
   // A new team on stage opens its sheet, whatever the judge was looking at, except that
-  // an unsubmitted sheet of the team that just pitched stays open until it is submitted.
+  // the team that just pitched comes first while this judge has not submitted it, even if
+  // the judge had wandered off to another team's sheet.
   useEffect(() => {
     if (!sync?.runOrder) return
     const current = sync.runOrder.current
@@ -67,7 +68,11 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
     lastCurrent.current = current
     if (!current) return
     setTie(false)
-    if (team && team.id !== current && (team.id === previous || waitingNext) && !submittedHere(team.id)) {
+    const order = sync.runOrder.order
+    const forward = !!previous && order.indexOf(current) > order.indexOf(previous)
+    const pending = forward && !submittedHere(previous) ? previous : waitingNext && team && !submittedHere(team.id) ? team.id : null
+    if (pending && pending !== current && !sync.absent) {
+      setTeam(TEAMS.find((t) => t.id === pending) ?? null)
       setWaitingNext(current)
       return
     }
@@ -111,7 +116,7 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
         team={team}
         record={records.find((r) => r.teamId === team.id && r.judgeId === judge.id)}
         locked={closed(team) || !!sync?.absent}
-        lockedReason={sync?.absent ? ABSENT_NOTE : undefined}
+        lockedReason={sync?.absent ? ABSENT_NOTE : sync?.locked ? 'The result is locked. Scores can no longer change.' : undefined}
         onStage={onStage}
         judge={judge}
         timer={onStage ? timerClock(runOrder, sync?.clockOffset ?? 0) : null}
@@ -143,7 +148,9 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
             </button>
           )}
           <p className="muted small waiting">
-            {onStage ? `On stage now: ${onStage.appName}. Its sheet opens automatically.` : 'Waiting for the operator to put the next team on stage. Its sheet opens automatically.'}
+            {onStage ? `On stage now: ${onStage.appName}. Its sheet opens automatically.`
+              : showFinished(runOrder) ? 'All teams have presented. Wait for the operator to open the judges\' deliberation.'
+              : 'Waiting for the operator to put the next team on stage. Its sheet opens automatically.'}
           </p>
         </>
       }

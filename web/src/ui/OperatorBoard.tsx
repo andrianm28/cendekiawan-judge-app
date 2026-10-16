@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EMPTY_DELIBERATION } from '../domain/deliberation'
-import { canPutOnStage, canStepBack, DEFAULT_RUN_ORDER, stepCurrent, timerClock } from '../domain/runOrder'
+import { canPutOnStage, canStepBack, DEFAULT_RUN_ORDER, showFinished, stepCurrent, timerClock } from '../domain/runOrder'
 import { averagedFinal, CRITERIA, finalScore, isComplete, type PartialSheet, type ScoreSheet } from '../domain/scoring'
 import { CATEGORIES, categoryOf, TEAMS, type Team } from '../domain/teams'
 import type { TieSummary } from '../domain/ties'
@@ -64,7 +64,9 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
     try {
       await fn()
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : String(e))
+      // fetch fails with a TypeError (or an abort) when the laptop has no connection.
+      const offline = e instanceof TypeError || (e instanceof Error && e.message === 'No answer from the server')
+      window.alert(offline ? 'Cannot reach the server. Check the Wi-Fi and try again.' : e instanceof Error ? e.message : String(e))
     }
     await refresh()
   }
@@ -139,7 +141,7 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
           <section className="card stage">
             <div className="stage-now">
               <span className="eyebrow">On stage</span>
-              <strong className="stage-team">{onStage ? `${onStage.order}. ${onStage.appName}` : 'Nobody yet'}</strong>
+              <strong className="stage-team">{onStage ? `${onStage.order}. ${onStage.appName}` : showFinished(run) ? 'All teams have presented' : 'Nobody yet'}</strong>
               {onStage && <span className="muted small">{onStage.teamName} · {onStage.university} · {categoryOf(onStage.category).name}</span>}
               {onStage && judges.length > 0 && (() => {
                 const waiting = judges.filter((j) => sheetOf(j.id, onStage.id)?.status !== 'submitted')
@@ -161,12 +163,14 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
                       {run.pausedAt ? '▶ Resume' : '⏸ Pause'}
                     </button>
                   )}
-                  <button className="secondary" onClick={() => void setRun({ timer: run.startedAt ? 'reset' : 'start' })}>
+                  <button className="secondary" onClick={() => {
+                    if (!run.startedAt || window.confirm(`Reset the timer for ${onStage.appName} back to 5:00?`)) void setRun({ timer: run.startedAt ? 'reset' : 'start' })
+                  }}>
                     {run.startedAt ? 'Reset timer' : 'Start timer'}
                   </button>
                 </span>
               )}
-              <button className="primary compact" onClick={() => {
+              <button className="primary compact" disabled={showFinished(run)} onClick={() => {
                 const next = stepCurrent(run, 1).current
                 const leaving = run.current && (!next || TEAMS.find((t) => t.id === next)?.category !== onStage?.category)
                 const waiting = onStage ? judges.filter((j) => sheetOf(j.id, onStage.id)?.status !== 'submitted') : []
@@ -174,7 +178,7 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
                 if (leaving && !window.confirm(`Leave ${categoryOf(onStage!.category).name}? The show cannot come back to this category.`)) return
                 void setRun(stepCurrent(run, 1))
               }}>
-                {!run.current ? 'Start with first team ›' : run.order.indexOf(run.current) === run.order.length - 1 ? 'Finish ›' : 'Next team ›'}
+                {showFinished(run) ? 'Show finished' : !run.current ? 'Start with first team ›' : run.order.indexOf(run.current) === run.order.length - 1 ? 'Finish ›' : 'Next team ›'}
               </button>
             </div>
             <div className="row deliberation-toggle">
@@ -312,7 +316,7 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
       )}
       <ResetCard scores={records.length} locked={!!state?.locked} onReset={(phrase) => act(async () => {
         const r = await api.resetEventData(phrase)
-        window.alert(`Reset done: ${r.scores} score sheets removed (a copy is archived on the server). Tablets clear their copies on their next sync.`)
+        window.alert(`Reset done: ${r.scores} score ${r.scores === 1 ? 'sheet' : 'sheets'} removed (a copy is archived on the server). Tablets clear their copies on their next sync.`)
       })} />
       <section className="card">
         <h2>Change log</h2>
@@ -378,6 +382,8 @@ function describe(a: AuditEntry, judges: Judge[]): string {
     }
     case 'reorder_rank': return `${team}: Rank ${d.from} → ${d.to}. ${d.reason}`
     case 'lock_result': return 'Locked the result'
+    case 'open_deliberation': return 'Opened the judges\' deliberation'
+    case 'close_deliberation': return 'Closed the judges\' deliberation'
     case 'set_order': return 'Changed the running order'
     case 'now_presenting': return d.teamId ? `On stage: ${team}` : 'Stage cleared'
     case 'start_timer': return `Timer started for ${team}`
@@ -460,7 +466,7 @@ function JudgeEditor({ judge, judges, onSave, onBack }: {
             {pin2 !== '' && pinMismatch && <span className="small warn">The two PINs do not match.</span>}
           </label>
         )}
-        {pin !== '' && <p className="small muted">The judge keeps using their tablet until they log out; the new PIN is needed the next time they log in. Give it to them in person.</p>}
+        {pin !== '' && <p className="small muted">The judge's tablet logs out within a few seconds of saving, and any taps it has not sent yet stay on it until the judge logs in again with the new PIN on that tablet. Give them the new PIN in person, ideally while their tablet shows Synced.</p>}
         {error && <p className="banner">{error}</p>}
         <div className="editor-actions">
           <button type="button" className="secondary" onClick={onBack}>Cancel</button>

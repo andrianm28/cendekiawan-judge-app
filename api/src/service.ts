@@ -35,6 +35,13 @@ const SESSION_DAYS = 365
  */
 export const CORRECTION_STEP = 1000
 
+/** Wrong PINs allowed per window before every login pauses until the window ends. */
+export const LOGIN_MAX_FAILURES = 20
+const LOGIN_WINDOW_MS = 15 * 60_000
+
+/** Highest sheet version accepted: far above any tablet's tap count plus corrections. */
+const MAX_VERSION = 1_000_000_000
+
 /** What the operator types to reset after the result has been locked. */
 export const RESET_LOCKED = 'RESET LOCKED RESULT'
 
@@ -72,6 +79,24 @@ export class JudgingService {
   }
 
   async login(pin: string) {
+    // Too many wrong PINs anywhere pauses every login for a while. Tablets already logged
+    // in are not affected, and guessing a 6-digit PIN becomes a matter of weeks, not hours.
+    const now = this.now().getTime()
+    const f = await this.store.getLoginFailures()
+    const open = f && now - f.since < LOGIN_WINDOW_MS ? f : { since: now, count: 0 }
+    if (open.count >= LOGIN_MAX_FAILURES) {
+      const minutes = Math.ceil((open.since + LOGIN_WINDOW_MS - now) / 60000)
+      throw new ApiError(429, 'too_many_tries', `Too many wrong PINs. Try again in ${minutes} min, or ask the operator.`)
+    }
+    try {
+      return await this.checkPin(pin)
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'bad_pin') await this.store.putLoginFailures({ since: open.since, count: open.count + 1 })
+      throw e
+    }
+  }
+
+  private async checkPin(pin: string) {
     if (!/^\d{4,8}$/.test(pin)) throw new ApiError(401, 'bad_pin', 'Wrong PIN')
     const exp = Math.floor(this.now().getTime() / 1000) + SESSION_DAYS * 86400
     const admin = await this.store.getAdminPinHash()
@@ -106,7 +131,7 @@ export class JudgingService {
   async stage() {
     const r = normalizeRunOrder(await this.store.getRunOrder())
     return {
-      runOrder: { order: r.order, current: r.current, startedAt: r.startedAt, pausedAt: r.pausedAt, pausedMs: r.pausedMs },
+      runOrder: { order: r.order, current: r.current, startedAt: r.startedAt, pausedAt: r.pausedAt, pausedMs: r.pausedMs, reached: r.reached },
       serverTime: this.now().toISOString(),
     }
   }
@@ -439,7 +464,9 @@ function validate(input: ScoreInput) {
     typeof input.note === 'string' &&
     input.note.length <= 200 &&
     (input.status === 'draft' || input.status === 'submitted') &&
-    Number.isInteger(input.version)
+    Number.isInteger(input.version) &&
+    // Tablets count taps from 1; a huge version would lock the judge out of their own sheet.
+    input.version >= 0 && input.version <= MAX_VERSION
   if (!ok) throw new ApiError(400, 'bad_score', 'Invalid score sheet')
   if (input.status === 'submitted' && !isComplete(input.sheet)) {
     throw new ApiError(400, 'incomplete', `All ${CRITERIA.length} criteria are needed to submit`)

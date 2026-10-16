@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { DEFAULT_RUN_ORDER, timerClock } from '../domain/runOrder'
+import { DEFAULT_RUN_ORDER, normalizeRunOrder, showFinished, timerClock } from '../domain/runOrder'
 import { categoryOf, TEAMS, type Team } from '../domain/teams'
 import type { Api, ServerState } from '../sync/api'
 import { Timer } from './Timer'
@@ -42,11 +42,12 @@ export function StageScreen({ api }: { api: Api }) {
     return () => clearInterval(t)
   }, [refresh])
 
-  const run = state?.runOrder ?? DEFAULT_RUN_ORDER
+  const run = state ? normalizeRunOrder(state.runOrder) : DEFAULT_RUN_ORDER
+  const finished = showFinished(run)
   const order = run.order.length ? run.order : TEAMS.map((t) => t.id)
   const team = TEAMS.find((t) => t.id === run.current)
   const position = team ? order.indexOf(team.id) : -1
-  const next = TEAMS.find((t) => t.id === order[team ? position + 1 : 0])
+  const next = finished ? undefined : TEAMS.find((t) => t.id === order[team ? position + 1 : 0])
   const offset = state ? Date.parse(state.serverTime) - asked : 0
   const cat = team ? categoryOf(team.category) : undefined
 
@@ -85,7 +86,7 @@ export function StageScreen({ api }: { api: Api }) {
         <main className="stage-main idle">
           <span className="stage-eyebrow">Universiti Malaya · Tuesday, 20 October 2026</span>
           <h1 className="stage-app">Grand Finale</h1>
-          <p className="stage-team-line">{order.length} finalist teams · 5 categories</p>
+          <p className="stage-team-line">{finished ? 'Thank you to all finalists · the judges are deliberating' : `${order.length} finalist teams · 5 categories`}</p>
         </main>
       )}
 
