@@ -18,9 +18,9 @@ describe('buildLeaderboard', () => {
   it('ranks submitted teams overall and per category, leaving the rest unscored', () => {
     const b = buildLeaderboard(records, { includeDrafts: false })
     expect(b.rows.map((r) => [r.result.team.id, r.overallRank, r.categoryRank, r.result.final])).toEqual([
-      ['t02', 1, 1, 87],
+      ['t02', 1, 1, 85],
       ['t05', 2, 1, 77],
-      ['t01', 3, 2, 62],
+      ['t01', 3, 2, 60],
     ])
     expect(b.unscored).toHaveLength(17)
     expect(b.submitted).toBe(3)
@@ -29,7 +29,7 @@ describe('buildLeaderboard', () => {
     expect(b.rows[1].award).toBe('Rank 2')
     expect(b.rows[2].award).toBeUndefined()
     expect(b.categories[0].rows.map((r) => r.result.team.id)).toEqual(['t02', 't01'])
-    expect(b.rows[0].c1).toBe(87.5)
+    expect(b.rows[0].c1).toBe(85)
   })
 
   it('counts complete drafts as provisional when asked, and ties share a rank', () => {

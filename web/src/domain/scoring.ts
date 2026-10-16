@@ -1,16 +1,16 @@
 // Rubric math, done in integers so .5 cases always round the same way.
 //
-// Seven criteria (ADR 0006: D2 "Works well" and V3 "Reliable" were dropped because the demo is a
-// pre-recorded video, so teams never show a failing app). The rest keep the ToT UM ratios:
-// Final = 0.5 × C1 + 0.5 × C2, where
-//   C1 = (D1+D3+D4+D5) / 16 × 100
+// Eight criteria. V3 "Reliable" was dropped because the demo is a pre-recorded video, so teams
+// never show a failing app (ADR 0006); D2 now scores use of AWS, not "works well" (ADR 0007).
+// The rest keep the ToT UM ratios: Final = 0.5 × C1 + 0.5 × C2, where
+//   C1 = (D1+D2+D3+D4+D5) / 20 × 100
 //   C2 = (35 V1 + 25 V2 + 20 V4) / 80 / 4 × 100
 // Multiplying through by 32 gives an exact integer:
-//   32 × Final = 100 (D1+D3+D4+D5) + 175 V1 + 125 V2 + 100 V4
-// Effective weights: D 12.5% each, V1 21.875%, V2 15.625%, V4 12.5%.
+//   32 × Final = 80 (D1+…+D5) + 175 V1 + 125 V2 + 100 V4
+// Effective weights: D 10% each, V1 21.875%, V2 15.625%, V4 12.5%.
 // Rounding is half-up (69.5 → 70), as in the ToT Judging Workspace.
 
-export const D_KEYS = ['d1', 'd3', 'd4', 'd5'] as const
+export const D_KEYS = ['d1', 'd2', 'd3', 'd4', 'd5'] as const
 export const V_KEYS = ['v1', 'v2', 'v4'] as const
 export const CRITERIA = [...D_KEYS, ...V_KEYS] as const
 export type CriterionKey = (typeof CRITERIA)[number]
@@ -22,7 +22,7 @@ export type ScoreSheet = Record<CriterionKey, Level>
 export type PartialSheet = Partial<Record<CriterionKey, Level>>
 
 /** Each criterion's points per level; Final = Σ weight × level ÷ FINAL_SCALE. */
-export const WEIGHTS: Record<CriterionKey, number> = { d1: 100, d3: 100, d4: 100, d5: 100, v1: 175, v2: 125, v4: 100 }
+export const WEIGHTS: Record<CriterionKey, number> = { d1: 80, d2: 80, d3: 80, d4: 80, d5: 80, v1: 175, v2: 125, v4: 100 }
 /** All levels at 4 give 4 × Σ WEIGHTS = 3200 = 100 × FINAL_SCALE. */
 export const FINAL_SCALE = 32
 

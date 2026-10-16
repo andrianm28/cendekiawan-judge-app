@@ -3,7 +3,7 @@ import { ALL_CRITERIA } from './rubric'
 import { CRITERIA, FINAL_SCALE, WEIGHTS } from './scoring'
 
 describe('rubric', () => {
-  it('shows each of the seven criteria exactly once', () => {
+  it('shows each of the eight criteria exactly once', () => {
     expect(ALL_CRITERIA.map((c) => c.key).sort()).toEqual([...CRITERIA].sort())
   })
 

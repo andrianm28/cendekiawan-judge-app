@@ -1,8 +1,8 @@
 // Rubric for the Grand Final: one rubric for the whole 5-minute slot (pitch and hands-on demo video),
 // in the order of the five segments the teams were taught in the Showcase Prep workshop deck. The
-// wording is the ToT UM rubric's, in plain words for executive judges who may not be technical. Seven
-// of its nine criteria (ADR 0006); the weight shown is each criterion's share of the final, from
-// WEIGHTS in scoring.ts, rounded to one decimal.
+// wording is the ToT UM rubric's, in plain words for executive judges who may not be technical. Eight
+// criteria (ADR 0006, 0007); the weight shown is each criterion's share of the final, from WEIGHTS in
+// scoring.ts, rounded to one decimal.
 
 import type { CriterionKey, Level } from './scoring'
 
@@ -35,7 +35,7 @@ export const SEGMENTS: Segment[] = [
     title: 'Problem', time: '0:00–0:45',
     criteria: [
       {
-        key: 'd1', code: 'D1', name: 'Real problem', weight: '12.5%',
+        key: 'd1', code: 'D1', name: 'Real problem', weight: '10%',
         question: 'Is it a real problem for real people?',
         levels: {
           1: 'No problem stated, only the app',
@@ -50,13 +50,23 @@ export const SEGMENTS: Segment[] = [
     title: 'Solution', time: '0:45–1:30',
     criteria: [
       {
-        key: 'd3', code: 'D3', name: 'Fresh idea', weight: '12.5%',
-        question: 'How new is the idea, and does it really need AI on AWS?',
+        key: 'd3', code: 'D3', name: 'Fresh idea', weight: '10%',
+        question: 'How new is the idea, and does it really need AI?',
         levels: {
           1: 'A copy of a tutorial or sample app, little changed',
           2: 'A common idea, done fine',
           3: 'A common idea used in a smart new way, and AI is really needed',
           4: 'Original and clearly different from existing apps, with AI at its heart',
+        },
+      },
+      {
+        key: 'd2', code: 'D2', name: 'Built on AWS', weight: '10%',
+        question: 'How well does the app use AWS, with Amazon Bedrock at its core?',
+        levels: {
+          1: 'AWS or Amazon Bedrock not shown or explained',
+          2: 'Names AWS services, but unclear how they work together',
+          3: 'Clear how Amazon Bedrock and the other AWS services make the app work',
+          4: 'Level 3, plus a good reason for each choice (e.g. why this model)',
         },
       },
     ],
@@ -90,7 +100,7 @@ export const SEGMENTS: Segment[] = [
         },
       },
       {
-        key: 'd4', code: 'D4', name: 'Usable in real life', weight: '12.5%',
+        key: 'd4', code: 'D4', name: 'Usable in real life', weight: '10%',
         question: 'Could a real organisation use this now?',
         levels: {
           1: 'Only a school exercise',
@@ -115,7 +125,7 @@ export const SEGMENTS: Segment[] = [
     title: 'Closing', time: '4:15–5:00',
     criteria: [
       {
-        key: 'd5', code: 'D5', name: 'Clear pitch', weight: '12.5%',
+        key: 'd5', code: 'D5', name: 'Clear pitch', weight: '10%',
         question: 'Was the pitch clear and easy to follow?',
         levels: {
           1: 'Hard to follow',
@@ -128,5 +138,5 @@ export const SEGMENTS: Segment[] = [
   },
 ]
 
-/** All seven criteria in the order judges see them. */
+/** All eight criteria in the order judges see them. */
 export const ALL_CRITERIA: Criterion[] = SEGMENTS.flatMap((s) => s.criteria)
