@@ -2,12 +2,9 @@
 //
 // Eight criteria. V3 "Reliable" was dropped because the demo is a pre-recorded video, so teams
 // never show a failing app (ADR 0006); D2 now scores use of AWS, not "works well" (ADR 0007).
-// The rest keep the ToT UM ratios: Final = 0.5 × C1 + 0.5 × C2, where
-//   C1 = (D1+D2+D3+D4+D5) / 20 × 100
-//   C2 = (35 V1 + 25 V2 + 20 V4) / 80 / 4 × 100
-// Multiplying through by 32 gives an exact integer:
-//   32 × Final = 80 (D1+…+D5) + 175 V1 + 125 V2 + 100 V4
-// Effective weights: D 10% each, V1 21.875%, V2 15.625%, V4 12.5%.
+// All eight weigh the same, 12.5% each (ADR 0008): Final = sum of levels ÷ 32 × 100, so
+//   32 × Final = 100 × (D1+…+D5 + V1+V2+V4), an exact integer from 800 to 3200.
+// C1 (D side) and C2 (V side) are only subtotals for the operator's views.
 // Rounding is half-up (69.5 → 70), as in the ToT Judging Workspace.
 
 export const D_KEYS = ['d1', 'd2', 'd3', 'd4', 'd5'] as const
@@ -22,7 +19,7 @@ export type ScoreSheet = Record<CriterionKey, Level>
 export type PartialSheet = Partial<Record<CriterionKey, Level>>
 
 /** Each criterion's points per level; Final = Σ weight × level ÷ FINAL_SCALE. */
-export const WEIGHTS: Record<CriterionKey, number> = { d1: 80, d2: 80, d3: 80, d4: 80, d5: 80, v1: 175, v2: 125, v4: 100 }
+export const WEIGHTS: Record<CriterionKey, number> = { d1: 100, d2: 100, d3: 100, d4: 100, d5: 100, v1: 100, v2: 100, v4: 100 }
 /** All levels at 4 give 4 × Σ WEIGHTS = 3200 = 100 × FINAL_SCALE. */
 export const FINAL_SCALE = 32
 

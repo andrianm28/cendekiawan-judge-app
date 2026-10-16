@@ -6,11 +6,11 @@ const sheet = (d: number[], v: number[]): ScoreSheet =>
   ({ d1: d[0], d2: d[1], d3: d[2], d4: d[3], d5: d[4], v1: v[0], v2: v[1], v4: v[2] }) as ScoreSheet
 
 describe('finalScore', () => {
-  it('keeps the ToT ratios: 32 × Final = 80 ΣD + 175 V1 + 125 V2 + 100 V4', () => {
-    const s = sheet([3, 3, 3, 4, 2], [4, 3, 2]) // 2475 / 32 = 77.34
-    expect(c1(s)).toBe(75)
-    expect(c2(s)).toBe(79.69)
-    expect(finalScore(s)).toBe(77)
+  it('weighs all eight criteria the same: 32 × Final = 100 × the sum of levels', () => {
+    const s = sheet([4, 3, 3, 4, 3], [4, 3, 2]) // 2600 / 32 = 81.25
+    expect(c1(s)).toBe(85)
+    expect(c2(s)).toBe(75)
+    expect(finalScore(s)).toBe(81)
   })
   it('gives 75 for level 3 everywhere, as the participant guide says', () => {
     expect(finalScore(sheet([3, 3, 3, 3, 3], [3, 3, 3]))).toBe(75)
@@ -29,9 +29,9 @@ describe('finalScore', () => {
         s[k] = levels[n % 4]
         n = Math.floor(n / 4)
       }
-      // Reference in exact thousandths: Final × 1000 = 0.5×C1×1000 + 0.5×C2×1000.
+      // Reference in exact thousandths: Final × 1000 = 3125 × the sum of levels.
       const dSum = s.d1 + s.d2 + s.d3 + s.d4 + s.d5
-      const thousandths = 2500 * dSum + 5468.75 * s.v1 + 3906.25 * s.v2 + 3125 * s.v4
+      const thousandths = 3125 * (dSum + s.v1 + s.v2 + s.v4)
       expect(finalScore(s)).toBe(Math.floor(thousandths / 1000 + 0.5))
       checked++
     }
@@ -41,15 +41,15 @@ describe('finalScore', () => {
 
 describe('averagedFinal', () => {
   it('averages unrounded finals, then rounds once', () => {
-    const a = sheet([3, 3, 3, 4, 2], [4, 3, 2]) // 77.34
-    const b = sheet([3, 3, 3, 3, 3], [4, 3, 2]) // 77.34
-    expect(averagedFinal([a, b])).toBe(77)
+    const a = sheet([3, 3, 3, 4, 3], [4, 3, 2]) // 78.125
+    const b = sheet([3, 3, 3, 3, 4], [4, 3, 2]) // 78.125
+    expect(averagedFinal([a, b])).toBe(78)
   })
   it('differs from averaging already-rounded finals', () => {
     const c = sheet([1, 1, 1, 1, 1], [1, 1, 1]) // 800 / 32 = 25
-    const d = sheet([1, 1, 1, 1, 1], [1, 3, 2]) // 1150 / 32 = 35.9375, rounds to 36
-    // Exact mean 30.47 → 30. Rounding first would give (25 + 36) / 2 = 30.5 → 31.
-    expect(averagedFinal([c, d])).toBe(30)
+    const d = sheet([2, 2, 2, 2, 1], [1, 1, 1]) // 1200 / 32 = 37.5, rounds to 38
+    // Exact mean 31.25 → 31. Rounding first would give (25 + 38) / 2 = 31.5 → 32.
+    expect(averagedFinal([c, d])).toBe(31)
   })
   it('rejects an empty list', () => {
     expect(() => averagedFinal([])).toThrow()

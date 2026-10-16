@@ -5,7 +5,7 @@ import type { ScoreSheet } from './scoring'
 const sheet = (d: number[], v: number[]): ScoreSheet =>
   ({ d1: d[0], d2: d[1], d3: d[2], d4: d[3], d5: d[4], v1: v[0], v2: v[1], v3: v[2], v4: v[3] }) as ScoreSheet
 
-const S77 = sheet([3, 3, 3, 4, 2], [4, 3, 3, 2])
+const S77 = sheet([3, 3, 3, 4, 3], [4, 3, 3, 2])
 const S62 = sheet([3, 2, 2, 3, 2], [3, 2, 2, 2])
 const S87 = sheet([4, 3, 3, 4, 3], [4, 3, 3, 3])
 
@@ -18,9 +18,9 @@ describe('buildLeaderboard', () => {
   it('ranks submitted teams overall and per category, leaving the rest unscored', () => {
     const b = buildLeaderboard(records, { includeDrafts: false })
     expect(b.rows.map((r) => [r.result.team.id, r.overallRank, r.categoryRank, r.result.final])).toEqual([
-      ['t02', 1, 1, 85],
-      ['t05', 2, 1, 77],
-      ['t01', 3, 2, 60],
+      ['t02', 1, 1, 84],
+      ['t05', 2, 1, 78],
+      ['t01', 3, 2, 59],
     ])
     expect(b.unscored).toHaveLength(17)
     expect(b.submitted).toBe(3)
@@ -44,7 +44,7 @@ describe('buildLeaderboard', () => {
   })
 
   it('shares a rank on an equal final, whatever D1 says', () => {
-    const b = buildLeaderboard([rec('t01', S77), rec('t05', sheet([4, 3, 3, 3, 2], [4, 3, 3, 2]))], { includeDrafts: false })
+    const b = buildLeaderboard([rec('t01', S77), rec('t05', sheet([4, 3, 3, 3, 3], [4, 3, 3, 2]))], { includeDrafts: false })
     expect(b.rows.map((r) => [r.result.team.id, r.overallRank, r.tiedWithAbove])).toEqual([
       ['t05', 1, false],
       ['t01', 1, true],

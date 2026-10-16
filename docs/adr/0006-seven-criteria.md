@@ -1,6 +1,6 @@
 # Seven criteria: Works well (D2) and Reliable (V3) dropped
 
-Superseded in part by ADR 0007: D2 returns as "Built on AWS", making eight criteria.
+Superseded in part by ADR 0007: D2 returns as "Built on AWS", making eight criteria; ADR 0008 makes all eight weigh the same.
 
 Decided by Elite Academy on 16 Oct 2026. The invitation every team received asks for a pitch deck of 2–3 slides and a pre-recorded demo video of at most 2 minutes, with no live demo. A pre-recorded video can be edited, so no team shows an app that fails or gives a bad answer: D2 "Works well" and V3 "Reliable" would sit at 3–4 for everyone, add nothing to the ranking, and only add noise between judges.
 
