@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyOrder, EMPTY_DELIBERATION, lock, moveRank } from './deliberation'
+import { applyOrder, canSwap, EMPTY_DELIBERATION, keepsScoreOrder, lock, moveRank } from './deliberation'
 import { proposeRanks, rankCategory } from './ranking'
 import type { ScoreSheet } from './scoring'
 import { CATEGORIES, TEAMS } from './teams'
@@ -29,19 +29,38 @@ describe('deliberation', () => {
     expect(stale).toBe(false)
   })
 
-  it('moves a team, re-labels awards, and logs the reason', () => {
-    const p = proposal()
+  // t01 scores exactly what t05 scores, so the two winners are tied at Rank 2–3.
+  const tied = () => proposal({ t01: sheet([4, 3, 3, 4, 3], [4, 3, 3, 3]) })
+
+  it('swaps exactly tied winners, re-labels awards, and logs the reason', () => {
+    const p = tied()
     const { ranks } = applyOrder(p, EMPTY_DELIBERATION)
-    const d = moveRank(ranks, EMPTY_DELIBERATION, 3, 1, 'Strongest live demo on the day', now)
+    expect(ranks.map((r) => r.winner.team.id)).toEqual(['t17', 't01', 't05', 't13', 't09'])
+    const d = moveRank(ranks, EMPTY_DELIBERATION, 3, 2, 'Clearer impact', now)
     const after = applyOrder(p, d).ranks
     expect(after.map((r) => [r.winner.team.id, r.award, r.proposedRank])).toEqual([
-      ['t01', 'Winner of AWS CendekiAwan', 3],
-      ['t17', 'Rank 2', 1],
-      ['t05', 'Rank 3', 2],
+      ['t17', 'Winner of AWS CendekiAwan', 1],
+      ['t05', 'Rank 2', 3],
+      ['t01', 'Rank 3', 2],
       ['t13', 'Emerging Innovator', 4],
       ['t09', 'Rising Innovator', 5],
     ])
-    expect(d.log).toEqual([{ at: now.toISOString(), teamId: 't01', from: 3, to: 1, reason: 'Strongest live demo on the day' }])
+    expect(d.log).toEqual([{ at: now.toISOString(), teamId: 't05', from: 3, to: 2, reason: 'Clearer impact' }])
+  })
+
+  it('refuses to reorder winners whose averages differ', () => {
+    const { ranks } = applyOrder(tied(), EMPTY_DELIBERATION)
+    expect(canSwap(ranks, 2, 1)).toBe(false)
+    expect(canSwap(ranks, 3, 1)).toBe(false)
+    expect(() => moveRank(ranks, EMPTY_DELIBERATION, 2, 1, 'Strongest pitch')).toThrow(/same average/)
+    expect(() => moveRank(ranks, EMPTY_DELIBERATION, 4, 3, 'Strongest pitch')).toThrow(/same average/)
+  })
+
+  it('lets the server refuse an order that puts a lower average above a higher one', () => {
+    const p = tied()
+    expect(keepsScoreOrder(p, ['t17', 't05', 't01', 't13', 't09'])).toBe(true)
+    expect(keepsScoreOrder(p, ['t05', 't17', 't01', 't13', 't09'])).toBe(false)
+    expect(keepsScoreOrder(p, ['t17', 't01', 't05', 't09', 't13'])).toBe(false)
   })
 
   it('requires a reason', () => {
@@ -57,10 +76,10 @@ describe('deliberation', () => {
   })
 
   it('falls back to the proposal when a late score changes a category winner', () => {
-    const { ranks } = applyOrder(proposal(), EMPTY_DELIBERATION)
-    const d = moveRank(ranks, EMPTY_DELIBERATION, 2, 1, 'reason', now)
+    const { ranks } = applyOrder(tied(), EMPTY_DELIBERATION)
+    const d = moveRank(ranks, EMPTY_DELIBERATION, 3, 2, 'reason', now)
     // A late score makes t10 the environment winner instead of t09.
-    const late = proposal({ t10: sheet([4, 4, 4, 4, 4], [4, 4, 4, 3]) })
+    const late = proposal({ t01: sheet([4, 3, 3, 4, 3], [4, 3, 3, 3]), t10: sheet([4, 4, 4, 4, 4], [4, 4, 4, 3]) })
     const r = applyOrder(late, d)
     expect(r.stale).toBe(true)
     expect(r.ranks.map((x) => x.winner.team.id)).toEqual(late.map((x) => x.winner.team.id))

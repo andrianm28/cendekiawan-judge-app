@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { announcementOrder, proposeRanks, rankCategory } from './ranking'
+import { announcementOrder, exactFinal, proposeRanks, rankCategory } from './ranking'
 import type { ScoreSheet } from './scoring'
 import { CATEGORIES, TEAMS } from './teams'
 
 const sheet = (d: number[], v: number[]): ScoreSheet =>
   ({ d1: d[0], d2: d[1], d3: d[2], d4: d[3], d5: d[4], v1: v[0], v2: v[1], v3: v[2], v4: v[3] }) as ScoreSheet
 
-const WARIS = sheet([3, 3, 3, 4, 2], [4, 3, 3, 2]) // 77
-const KELAS = sheet([3, 2, 2, 3, 2], [3, 2, 2, 2]) // 59
-const HEALTH = sheet([4, 3, 3, 4, 3], [4, 3, 3, 3]) // 84
+const WARIS = sheet([3, 3, 3, 4, 3], [4, 3, 3, 2]) // 80
+const KELAS = sheet([3, 2, 2, 3, 2], [3, 2, 2, 2]) // 60
+const HEALTH = sheet([4, 3, 3, 4, 3], [4, 3, 3, 3]) // 85
 
 describe('rankCategory', () => {
   it('ranks by final and lists unscored teams', () => {
@@ -19,18 +19,18 @@ describe('rankCategory', () => {
     ])
     const s = rankCategory('education', TEAMS, scores)
     expect(s.ranked.map((r) => [r.team.id, r.final])).toEqual([
-      ['t02', 84],
-      ['t03', 77],
-      ['t01', 59],
+      ['t02', 85],
+      ['t03', 80],
+      ['t01', 60],
     ])
     expect(s.missing.map((t) => t.id)).toEqual(['t04'])
     expect(s.tiedAtTop).toBe(false)
   })
 
   it('leaves an equal final at the top to the category judge, even when D1 differs', () => {
-    // Both 77 after rounding; A has D1=4, B has D1=3.
-    const a = sheet([4, 3, 3, 3, 2], [4, 3, 3, 2])
-    const b = sheet([3, 3, 3, 4, 2], [4, 3, 3, 2])
+    // Both 80; A has D1=4, B has D1=3.
+    const a = sheet([4, 3, 3, 3, 3], [4, 3, 3, 2])
+    const b = sheet([3, 3, 3, 4, 3], [4, 3, 3, 2])
     const scores = new Map([['t05', [b]], ['t06', [a]], ['t07', [KELAS]]])
     const s = rankCategory('health', TEAMS, scores)
     expect(s.tiedAtTop).toBe(true)
@@ -46,9 +46,23 @@ describe('rankCategory', () => {
     expect(rankCategory('health', TEAMS, scores, 't07').tiedAtTop).toBe(true)
   })
 
+  it('ranks by the unrounded average, so two teams both showing 80 are not a tie', () => {
+    // 37 × final: t05 3175 and 2775 → 80.41; t06 2950 twice → 79.73; both round to 80.
+    const scores = new Map([
+      ['t05', [sheet([3, 3, 3, 3, 3], [4, 4, 3, 4]), sheet([3, 3, 3, 3, 3], [3, 3, 3, 3])]],
+      ['t06', [WARIS, WARIS]],
+    ])
+    const s = rankCategory('health', TEAMS, scores)
+    expect(s.ranked.map((r) => [r.team.id, r.final, exactFinal(r)])).toEqual([
+      ['t05', 80, '80.41'],
+      ['t06', 80, '79.73'],
+    ])
+    expect(s.tiedAtTop).toBe(false)
+  })
+
   it('averages every judge before comparing', () => {
     const s = rankCategory('health', TEAMS, new Map([['t05', [WARIS, KELAS]], ['t06', [WARIS, WARIS]]]))
-    expect(s.ranked.map((r) => [r.team.id, r.final, r.judges])).toEqual([['t06', 77, 2], ['t05', 68, 2]])
+    expect(s.ranked.map((r) => [r.team.id, r.final, r.judges])).toEqual([['t06', 80, 2], ['t05', 70, 2]])
     expect(s.tiedAtTop).toBe(false)
   })
 })
@@ -56,9 +70,9 @@ describe('rankCategory', () => {
 describe('proposeRanks', () => {
   it('orders the five category winners by final and maps the awards', () => {
     const finals: Record<string, ScoreSheet> = {
-      t01: WARIS, // education 77
-      t05: HEALTH, // health 84
-      t09: KELAS, // environment 59
+      t01: WARIS, // education 80
+      t05: HEALTH, // health 85
+      t09: KELAS, // environment 60
       t13: sheet([3, 3, 3, 3, 3], [3, 3, 3, 3]), // finance 75
       t17: sheet([4, 4, 4, 4, 4], [4, 4, 4, 4]), // govtech 100
     }
@@ -67,24 +81,24 @@ describe('proposeRanks', () => {
     const ranks = proposeRanks(standings)
     expect(ranks.map((r) => [r.rank, r.award, r.winner.team.id, r.winner.final])).toEqual([
       [1, 'Winner of AWS CendekiAwan', 't17', 100],
-      [2, 'Rank 2', 't05', 84],
-      [3, 'Rank 3', 't01', 77],
+      [2, 'Rank 2', 't05', 85],
+      [3, 'Rank 3', 't01', 80],
       [4, 'Emerging Innovator', 't13', 75],
-      [5, 'Rising Innovator', 't09', 59],
+      [5, 'Rising Innovator', 't09', 60],
     ])
     expect(announcementOrder(ranks).map((r) => r.award)[0]).toBe('Rising Innovator')
   })
 
   it('flags winners with the same final as a tie, even when D1 or D4 differ', () => {
-    // Both 77; the education winner has the higher D1, so it is listed first, but it is still a tie.
+    // Both 80; the education winner has the higher D1, so it is listed first, but it is still a tie.
     const scores = new Map([
-      ['t01', [sheet([4, 3, 3, 3, 2], [4, 3, 3, 2])]],
+      ['t01', [sheet([4, 3, 3, 3, 3], [4, 3, 3, 2])]],
       ['t05', [WARIS]],
     ])
     const ranks = proposeRanks(CATEGORIES.map((c) => rankCategory(c.id, TEAMS, scores)))
     expect(ranks.map((r) => [r.winner.team.id, r.winner.final, r.tiedWithAbove])).toEqual([
-      ['t01', 77, false],
-      ['t05', 77, true],
+      ['t01', 80, false],
+      ['t05', 80, true],
     ])
   })
 })

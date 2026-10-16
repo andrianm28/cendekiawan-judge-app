@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { TimerClock } from '../domain/runOrder'
-import { DEMO, LEVEL_NAMES, SOLUTION, type Criterion } from '../domain/rubric'
-import { c1, c2, finalScore, isComplete, type Level, type PartialSheet } from '../domain/scoring'
+import { LEVEL_NAMES, SEGMENTS, type Criterion } from '../domain/rubric'
+import { CRITERIA, finalScore, isComplete, type Level, type PartialSheet } from '../domain/scoring'
 import { categoryOf, type Team } from '../domain/teams'
 import type { ScoreRecord } from '../storage/scoreStore'
 import type { Judge } from '../judges'
@@ -57,13 +57,15 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer, time
       {judge && <JudgeBadge judge={judge} compact />}
       {locked && <p className="banner">This category is closed. Ask the operator to change a score.</p>}
 
-      <Section title="Solution" subtitle={complete ? `C1 ${c1(sheet)}` : '50%'}
-        criteria={SOLUTION} sheet={sheet} disabled={frozen} onPick={(k, l) => edit({ sheet: { [k]: l } })} />
-      <Section title="Demo Video" subtitle={complete ? `C2 ${c2(sheet)}` : '50%'}
-        criteria={DEMO} sheet={sheet} disabled={frozen} onPick={(k, l) => edit({ sheet: { [k]: l } })} />
+      <p className="muted small rubric-hint">Score what you see and hear in the whole 5 minutes, pitch and video; only what is shown or said counts. Give the highest level whose whole description is met; if only part of a level is met, give the level below. Give 1 or 4 only when you can point to what earns it.</p>
+
+      {SEGMENTS.map((seg) => (
+        <Section key={seg.title} title={seg.title} subtitle={seg.time}
+          criteria={seg.criteria} sheet={sheet} disabled={frozen} onPick={(k, l) => edit({ sheet: { [k]: l } })} />
+      ))}
 
       <label className="note">
-        <span>Note (optional, one sentence)</span>
+        <span>Note (optional): their main point in one sentence</span>
         <input
           type="text"
           defaultValue={record?.note ?? ''}
@@ -87,7 +89,7 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer, time
           </p>
         ) : (
           <button className="primary" disabled={!complete || locked} onClick={() => onChange({ status: 'submitted' })}>
-            {complete ? 'Submit score' : `Score all 9 criteria (${Object.keys(sheet).length}/9)`}
+            {complete ? 'Submit score' : `Score all ${CRITERIA.length} criteria (${CRITERIA.filter((k) => sheet[k] !== undefined).length}/${CRITERIA.length})`}
           </button>
         ))}
       </footer>

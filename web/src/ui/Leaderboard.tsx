@@ -178,9 +178,9 @@ function useChanges(board: Board) {
     const before = prev.current
     prev.current = board
     if (!before) return
-    const finals = new Map(before.rows.map((r) => [r.result.team.id, r.result.finalTimes8Sum * 1000 + r.result.judges]))
+    const finals = new Map(before.rows.map((r) => [r.result.team.id, r.result.finalScaledSum * 1000 + r.result.judges]))
     const fresh = new Set(
-      board.rows.filter((r) => finals.get(r.result.team.id) !== r.result.finalTimes8Sum * 1000 + r.result.judges).map((r) => r.result.team.id),
+      board.rows.filter((r) => finals.get(r.result.team.id) !== r.result.finalScaledSum * 1000 + r.result.judges).map((r) => r.result.team.id),
     )
     const moved = movements(before, board)
     if (fresh.size === 0 && moved.size === 0) return
