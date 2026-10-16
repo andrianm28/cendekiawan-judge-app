@@ -57,7 +57,7 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer, time
       {judge && <JudgeBadge judge={judge} compact />}
       {locked && <p className="banner">This category is closed. Ask the operator to change a score.</p>}
 
-      <p className="muted small rubric-hint">Score what you see and hear in the whole 5 minutes, pitch and video; a step cut from the video counts as not shown. Between two levels, pick the lower; most teams land on 2 or 3.</p>
+      <p className="muted small rubric-hint">Score what you see and hear in the whole 5 minutes, pitch and video; only what is shown or said counts. Give the highest level whose whole description is met; if only part of a level is met, give the level below. Give 1 or 4 only when you can point to what earns it.</p>
 
       {SEGMENTS.map((seg) => (
         <Section key={seg.title} title={seg.title} subtitle={seg.time}
@@ -65,7 +65,7 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer, time
       ))}
 
       <label className="note">
-        <span>Note (optional, one sentence)</span>
+        <span>Note (optional): their main point in one sentence</span>
         <input
           type="text"
           defaultValue={record?.note ?? ''}
