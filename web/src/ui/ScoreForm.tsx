@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { TimerClock } from '../domain/runOrder'
 import { LEVEL_NAMES, SEGMENTS, type Criterion } from '../domain/rubric'
-import { finalScore, isComplete, type Level, type PartialSheet } from '../domain/scoring'
+import { CRITERIA, finalScore, isComplete, type Level, type PartialSheet } from '../domain/scoring'
 import { categoryOf, type Team } from '../domain/teams'
 import type { ScoreRecord } from '../storage/scoreStore'
 import type { Judge } from '../judges'
@@ -89,7 +89,7 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer, time
           </p>
         ) : (
           <button className="primary" disabled={!complete || locked} onClick={() => onChange({ status: 'submitted' })}>
-            {complete ? 'Submit score' : `Score all 9 criteria (${Object.keys(sheet).length}/9)`}
+            {complete ? 'Submit score' : `Score all ${CRITERIA.length} criteria (${CRITERIA.filter((k) => sheet[k] !== undefined).length}/${CRITERIA.length})`}
           </button>
         ))}
       </footer>

@@ -7,8 +7,8 @@ const sheet = (d: number[], v: number[]): ScoreSheet =>
   ({ d1: d[0], d2: d[1], d3: d[2], d4: d[3], d5: d[4], v1: v[0], v2: v[1], v3: v[2], v4: v[3] }) as ScoreSheet
 
 const WARIS = sheet([3, 3, 3, 4, 2], [4, 3, 3, 2]) // 77
-const KELAS = sheet([3, 2, 2, 3, 2], [3, 2, 2, 2]) // 59
-const HEALTH = sheet([4, 3, 3, 4, 3], [4, 3, 3, 3]) // 84
+const KELAS = sheet([3, 2, 2, 3, 2], [3, 2, 2, 2]) // 62
+const HEALTH = sheet([4, 3, 3, 4, 3], [4, 3, 3, 3]) // 87
 
 describe('rankCategory', () => {
   it('ranks by final and lists unscored teams', () => {
@@ -19,9 +19,9 @@ describe('rankCategory', () => {
     ])
     const s = rankCategory('education', TEAMS, scores)
     expect(s.ranked.map((r) => [r.team.id, r.final])).toEqual([
-      ['t02', 84],
+      ['t02', 87],
       ['t03', 77],
-      ['t01', 59],
+      ['t01', 62],
     ])
     expect(s.missing.map((t) => t.id)).toEqual(['t04'])
     expect(s.tiedAtTop).toBe(false)
@@ -47,22 +47,22 @@ describe('rankCategory', () => {
   })
 
   it('ranks by the unrounded average, so two teams both showing 77 are not a tie', () => {
-    // t05 averages 77.19 (8 × final: 605 and 630), t06 averages 76.88 (615 twice); both round to 77.
+    // t06 averages 77.34 (32 × final: 2475 twice), t05 averages 76.95 (2400 and 2525); both round to 77.
     const scores = new Map([
-      ['t05', [sheet([3, 3, 3, 3, 3], [3, 4, 3, 2]), sheet([3, 3, 3, 3, 3], [4, 2, 4, 3])]],
+      ['t05', [sheet([3, 3, 3, 3, 3], [3, 3, 3, 3]), sheet([3, 3, 3, 3, 3], [3, 4, 3, 3])]],
       ['t06', [WARIS, WARIS]],
     ])
     const s = rankCategory('health', TEAMS, scores)
     expect(s.ranked.map((r) => [r.team.id, r.final, exactFinal(r)])).toEqual([
-      ['t05', 77, '77.19'],
-      ['t06', 77, '76.88'],
+      ['t06', 77, '77.34'],
+      ['t05', 77, '76.95'],
     ])
     expect(s.tiedAtTop).toBe(false)
   })
 
   it('averages every judge before comparing', () => {
     const s = rankCategory('health', TEAMS, new Map([['t05', [WARIS, KELAS]], ['t06', [WARIS, WARIS]]]))
-    expect(s.ranked.map((r) => [r.team.id, r.final, r.judges])).toEqual([['t06', 77, 2], ['t05', 68, 2]])
+    expect(s.ranked.map((r) => [r.team.id, r.final, r.judges])).toEqual([['t06', 77, 2], ['t05', 70, 2]])
     expect(s.tiedAtTop).toBe(false)
   })
 })
@@ -71,8 +71,8 @@ describe('proposeRanks', () => {
   it('orders the five category winners by final and maps the awards', () => {
     const finals: Record<string, ScoreSheet> = {
       t01: WARIS, // education 77
-      t05: HEALTH, // health 84
-      t09: KELAS, // environment 59
+      t05: HEALTH, // health 87
+      t09: KELAS, // environment 62
       t13: sheet([3, 3, 3, 3, 3], [3, 3, 3, 3]), // finance 75
       t17: sheet([4, 4, 4, 4, 4], [4, 4, 4, 4]), // govtech 100
     }
@@ -81,10 +81,10 @@ describe('proposeRanks', () => {
     const ranks = proposeRanks(standings)
     expect(ranks.map((r) => [r.rank, r.award, r.winner.team.id, r.winner.final])).toEqual([
       [1, 'Winner of AWS CendekiAwan', 't17', 100],
-      [2, 'Rank 2', 't05', 84],
+      [2, 'Rank 2', 't05', 87],
       [3, 'Rank 3', 't01', 77],
       [4, 'Emerging Innovator', 't13', 75],
-      [5, 'Rising Innovator', 't09', 59],
+      [5, 'Rising Innovator', 't09', 62],
     ])
     expect(announcementOrder(ranks).map((r) => r.award)[0]).toBe('Rising Innovator')
   })

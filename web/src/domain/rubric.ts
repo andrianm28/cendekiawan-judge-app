@@ -1,8 +1,8 @@
 // Rubric for the Grand Final: one rubric for the whole 5-minute slot (pitch and hands-on demo video),
 // in the order of the five segments the teams were taught in the Showcase Prep workshop deck. The
-// wording is the ToT UM rubric's, in plain words for executive judges who may not be technical. Keys
-// and weights are the ToT UM ones, so scoring.ts is unchanged; the weight shown is each criterion's
-// share of the final (D 50% ÷ 5, V × 50%).
+// wording is the ToT UM rubric's, in plain words for executive judges who may not be technical. Seven
+// of its nine criteria (ADR 0006); the weight shown is each criterion's share of the final, from
+// WEIGHTS in scoring.ts, rounded to one decimal.
 
 import type { CriterionKey, Level } from './scoring'
 
@@ -35,7 +35,7 @@ export const SEGMENTS: Segment[] = [
     title: 'Problem', time: '0:00–0:45',
     criteria: [
       {
-        key: 'd1', code: 'D1', name: 'Real problem', weight: '10%',
+        key: 'd1', code: 'D1', name: 'Real problem', weight: '12.5%',
         question: 'Is it a real problem for real people?',
         levels: {
           1: 'No problem stated, only the app',
@@ -50,8 +50,8 @@ export const SEGMENTS: Segment[] = [
     title: 'Solution', time: '0:45–1:30',
     criteria: [
       {
-        key: 'd3', code: 'D3', name: 'Fresh idea', weight: '10%',
-        question: 'How new is the idea, and does it really need AI?',
+        key: 'd3', code: 'D3', name: 'Fresh idea', weight: '12.5%',
+        question: 'How new is the idea, and does it really need AI on AWS?',
         levels: {
           1: 'A copy of a tutorial or sample app, little changed',
           2: 'A common idea, done fine',
@@ -65,17 +65,7 @@ export const SEGMENTS: Segment[] = [
     title: 'Demo', time: '1:30–3:30',
     criteria: [
       {
-        key: 'd2', code: 'D2', name: 'Works well', weight: '10%',
-        question: 'Does the app work, with its AI (Amazon Bedrock) doing real work?',
-        levels: {
-          1: 'Main feature not shown working',
-          2: 'Worked, but parts broke or were skipped',
-          3: 'Worked from start to end, and the AI does real work',
-          4: 'Level 3, and polished: smooth, quick, no glitches',
-        },
-      },
-      {
-        key: 'v2', code: 'V2', name: 'Easy to use', weight: '12.5%',
+        key: 'v2', code: 'V2', name: 'Easy to use', weight: '15.6%',
         question: 'Could a new user use it without help?',
         levels: {
           1: 'Could not tell how to use it',
@@ -84,23 +74,13 @@ export const SEGMENTS: Segment[] = [
           4: 'Clear at a glance: few steps, nothing confusing',
         },
       },
-      {
-        key: 'v3', code: 'V3', name: 'Reliable', weight: '10%',
-        question: 'Did it give good answers with different inputs?',
-        levels: {
-          1: 'Failed, or gave no useful answer',
-          2: 'Only one input shown, or some answers wrong or weak',
-          3: 'At least 2–3 different inputs, good answers each time',
-          4: 'Level 3, plus it handled a tricky, unusual or unsafe input well',
-        },
-      },
     ],
   },
   {
     title: 'Real-world impact', time: '3:30–4:15',
     criteria: [
       {
-        key: 'v1', code: 'V1', name: 'Impact shown', weight: '17.5%',
+        key: 'v1', code: 'V1', name: 'Impact shown', weight: '21.9%',
         question: 'Did they show how it helps real people?',
         levels: {
           1: 'Only features, no real situation',
@@ -110,7 +90,7 @@ export const SEGMENTS: Segment[] = [
         },
       },
       {
-        key: 'd4', code: 'D4', name: 'Usable in real life', weight: '10%',
+        key: 'd4', code: 'D4', name: 'Usable in real life', weight: '12.5%',
         question: 'Could a real organisation use this now?',
         levels: {
           1: 'Only a school exercise',
@@ -120,7 +100,7 @@ export const SEGMENTS: Segment[] = [
         },
       },
       {
-        key: 'v4', code: 'V4', name: 'Can grow', weight: '10%',
+        key: 'v4', code: 'V4', name: 'Can grow', weight: '12.5%',
         question: 'Could it serve many more people?',
         levels: {
           1: 'Not mentioned',
@@ -135,7 +115,7 @@ export const SEGMENTS: Segment[] = [
     title: 'Closing', time: '4:15–5:00',
     criteria: [
       {
-        key: 'd5', code: 'D5', name: 'Clear pitch', weight: '10%',
+        key: 'd5', code: 'D5', name: 'Clear pitch', weight: '12.5%',
         question: 'Was the pitch clear and easy to follow?',
         levels: {
           1: 'Hard to follow',
@@ -148,5 +128,5 @@ export const SEGMENTS: Segment[] = [
   },
 ]
 
-/** All nine criteria in the order judges see them. */
+/** All seven criteria in the order judges see them. */
 export const ALL_CRITERIA: Criterion[] = SEGMENTS.flatMap((s) => s.criteria)

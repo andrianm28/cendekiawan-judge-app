@@ -6,8 +6,8 @@ import { memoryStore } from './store'
 import { CATEGORIES, TEAMS } from '../../web/src/domain/teams'
 
 const SECRET = 'test-secret-test-secret-test-secret'
-const FULL = { d1: 3, d2: 3, d3: 3, d4: 4, d5: 2, v1: 4, v2: 3, v3: 3, v4: 2 } as const
-const PLAIN = { d1: 2, d2: 2, d3: 2, d4: 2, d5: 2, v1: 2, v2: 2, v3: 2, v4: 2 } as const
+const FULL = { d1: 3, d3: 3, d4: 4, d5: 2, v1: 4, v2: 3, v4: 2 } as const
+const PLAIN = { d1: 2, d3: 2, d4: 2, d5: 2, v1: 2, v2: 2, v4: 2 } as const
 
 /**
  * Both judges submit every team: the first team of each category gets FULL, the rest
@@ -277,7 +277,7 @@ describe('submitted scores', () => {
 })
 
 describe('ties', () => {
-  const LOW = { d1: 2, d2: 2, d3: 2, d4: 2, d5: 2, v1: 2, v2: 2, v3: 2, v4: 2 }
+  const LOW = { d1: 2, d3: 2, d4: 2, d5: 2, v1: 2, v2: 2, v4: 2 }
   const EQ = { ...FULL, d1: 4, d4: 3 } // same final as FULL, different D1
   async function tiedEducation() {
     const ctx = await setup()

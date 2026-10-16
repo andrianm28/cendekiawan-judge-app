@@ -87,7 +87,7 @@ function Brand({ title }: { title: string }) {
 function Formula() {
   return (
     <p className="small">
-      Final = (10% × (D1+D2+D3+D4+D5) + 17.5% V1 + 12.5% V2 + 10% V3 + 10% V4) ÷ 4 × 100, from 25 to 100,
+      Final = (12.5% × (D1+D3+D4+D5) + 21.875% V1 + 15.625% V2 + 12.5% V4) ÷ 4 × 100, from 25 to 100,
       rounded half up (69.5 → 70). Each team's final is the average of all judges. A tie at the top of a category is decided by that category's judge.
     </p>
   )
