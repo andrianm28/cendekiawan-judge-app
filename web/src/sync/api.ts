@@ -49,6 +49,10 @@ export interface ServerState {
   deliberation?: Deliberation | null
   /** The result is locked: every score is frozen. */
   locked?: boolean
+  /** Judge view: the operator marked this judge absent, so their scores do not count. */
+  absent?: boolean
+  /** Operator view: judges marked absent (not in `judges`, their sheets not in `scores`). */
+  absentJudges?: Judge[]
 }
 
 export class ApiError extends Error {
@@ -110,7 +114,8 @@ export class Api {
   pickTieWinner = (category: CategoryId, teamId: string) => this.call<TieBreak>('PUT', `/ties/${category}`, { teamId })
   putRunOrder = (body: { order?: string[]; current?: string | null; timer?: 'start' | 'reset' | 'pause' | 'resume'; deliberation?: boolean }) =>
     this.call<RunOrder>('PUT', '/admin/runorder', body)
-  resetEventData = () => this.call<{ epoch: string; scores: number }>('POST', '/admin/reset', { confirm: 'RESET' })
+  resetEventData = (confirm = 'RESET') => this.call<{ epoch: string; scores: number }>('POST', '/admin/reset', { confirm })
+  setJudgeAbsent = (id: string, absent: boolean) => this.call<{ absent: string[] }>('POST', `/admin/judges/${id}/absent`, { absent })
   putDeliberation = (d: Deliberation) => this.call<Deliberation>('PUT', '/admin/deliberation', d)
   audit = () => this.call<AuditEntry[]>('GET', '/admin/audit')
 }

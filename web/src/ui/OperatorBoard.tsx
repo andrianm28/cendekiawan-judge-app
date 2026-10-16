@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EMPTY_DELIBERATION } from '../domain/deliberation'
-import { canPutOnStage, canStepBack, DEFAULT_RUN_ORDER, stepCurrent, timerClock } from '../domain/runOrder'
-import { averagedFinal, finalScore, isComplete, type PartialSheet, type ScoreSheet } from '../domain/scoring'
+import { canPutOnStage, canStepBack, DEFAULT_RUN_ORDER, showFinished, stepCurrent, timerClock } from '../domain/runOrder'
+import { averagedFinal, CRITERIA, finalScore, isComplete, type PartialSheet, type ScoreSheet } from '../domain/scoring'
 import { CATEGORIES, categoryOf, TEAMS, type Team } from '../domain/teams'
 import type { TieSummary } from '../domain/ties'
 import type { Judge } from '../judges'
@@ -64,7 +64,9 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
     try {
       await fn()
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : String(e))
+      // fetch fails with a TypeError (or an abort) when the laptop has no connection.
+      const offline = e instanceof TypeError || (e instanceof Error && e.message === 'No answer from the server')
+      window.alert(offline ? 'Cannot reach the server. Check the Wi-Fi and try again.' : e instanceof Error ? e.message : String(e))
     }
     await refresh()
   }
@@ -139,7 +141,7 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
           <section className="card stage">
             <div className="stage-now">
               <span className="eyebrow">On stage</span>
-              <strong className="stage-team">{onStage ? `${onStage.order}. ${onStage.appName}` : 'Nobody yet'}</strong>
+              <strong className="stage-team">{onStage ? `${onStage.order}. ${onStage.appName}` : showFinished(run) ? 'All teams have presented' : 'Nobody yet'}</strong>
               {onStage && <span className="muted small">{onStage.teamName} · {onStage.university} · {categoryOf(onStage.category).name}</span>}
               {onStage && judges.length > 0 && (() => {
                 const waiting = judges.filter((j) => sheetOf(j.id, onStage.id)?.status !== 'submitted')
@@ -161,12 +163,14 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
                       {run.pausedAt ? '▶ Resume' : '⏸ Pause'}
                     </button>
                   )}
-                  <button className="secondary" onClick={() => void setRun({ timer: run.startedAt ? 'reset' : 'start' })}>
+                  <button className="secondary" onClick={() => {
+                    if (!run.startedAt || window.confirm(`Reset the timer for ${onStage.appName} back to 5:00?`)) void setRun({ timer: run.startedAt ? 'reset' : 'start' })
+                  }}>
                     {run.startedAt ? 'Reset timer' : 'Start timer'}
                   </button>
                 </span>
               )}
-              <button className="primary compact" onClick={() => {
+              <button className="primary compact" disabled={showFinished(run)} onClick={() => {
                 const next = stepCurrent(run, 1).current
                 const leaving = run.current && (!next || TEAMS.find((t) => t.id === next)?.category !== onStage?.category)
                 const waiting = onStage ? judges.filter((j) => sheetOf(j.id, onStage.id)?.status !== 'submitted') : []
@@ -174,7 +178,7 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
                 if (leaving && !window.confirm(`Leave ${categoryOf(onStage!.category).name}? The show cannot come back to this category.`)) return
                 void setRun(stepCurrent(run, 1))
               }}>
-                {!run.current ? 'Start with first team ›' : run.order.indexOf(run.current) === run.order.length - 1 ? 'Finish ›' : 'Next team ›'}
+                {showFinished(run) ? 'Show finished' : !run.current ? 'Start with first team ›' : run.order.indexOf(run.current) === run.order.length - 1 ? 'Finish ›' : 'Next team ›'}
               </button>
             </div>
             <div className="row deliberation-toggle">
@@ -224,10 +228,31 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
                       {ago < LIVE_MS ? '● online' : seen ? `seen ${Math.round(ago / 60000)} min ago` : 'not logged in'}
                     </span>
                     <button className="secondary" onClick={() => setView({ kind: 'judge', judge })}>Edit judge</button>
+                    <button className="secondary danger" disabled={state.locked} onClick={() => {
+                      if (window.confirm(`Mark ${judge.name} absent? Their scores stop counting: every team is then judged by the other ${judges.length - 1} judges, and the lock and ties no longer wait for ${judge.name}. You can bring them back later.`)) {
+                        void act(() => api.setJudgeAbsent(judge.id, true))
+                      }
+                    }}>Mark absent</button>
                   </li>
                 )
               })}
             </ul>
+            {(state.absentJudges ?? []).length > 0 && (
+              <>
+                <p className="banner">
+                  Absent: {state.absentJudges!.map((j) => j.name).join(', ')}. Their scores do not count; every team is judged by the {judges.length} judges above.
+                </p>
+                <ul className="board-judges">
+                  {state.absentJudges!.map((judge) => (
+                    <li key={judge.id}>
+                      <JudgeAvatar judge={judge} />
+                      <span className="team-name"><strong>Judge {judge.group} · {judge.name}</strong><span className="muted small">Absent · scores not counted</span></span>
+                      <button className="secondary" disabled={state.locked} onClick={() => void act(() => api.setJudgeAbsent(judge.id, false))}>Back on panel</button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </section>
 
           {CATEGORIES.map((c) => {
@@ -268,8 +293,8 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
                             <td><strong>{t.appName}</strong> <span className="muted small">{t.university}</span></td>
                             {judges.map((j) => {
                               const r = sheetOf(j.id, t.id)
-                              // A draft shows what the judge has picked so far: its score once all 9 are in, else how many.
-                              const label = !r ? '–' : isComplete(r.sheet) ? String(finalScore(r.sheet)) : `${Object.keys(r.sheet).length}/9`
+                              // A draft shows what the judge has picked so far: its score once all criteria are in, else how many.
+                              const label = !r ? '–' : isComplete(r.sheet) ? String(finalScore(r.sheet)) : `${CRITERIA.filter((k) => r.sheet[k] !== undefined).length}/${CRITERIA.length}`
                               return (
                                 <td key={j.id} className="num">
                                   <button className={`cell ${!r ? 'empty' : r.status}`} title={!r ? `Enter ${j.name}'s paper sheet` : r.status === 'submitted' ? `Correct ${j.name}'s score` : `${j.name} is still scoring (draft, not submitted)`}
@@ -289,16 +314,16 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
           })}
         </>
       )}
-      <ResetCard scores={records.length} onReset={() => act(async () => {
-        const r = await api.resetEventData()
-        window.alert(`Reset done: ${r.scores} score sheets removed. Tablets clear their copies on their next sync.`)
+      <ResetCard scores={records.length} locked={!!state?.locked} onReset={(phrase) => act(async () => {
+        const r = await api.resetEventData(phrase)
+        window.alert(`Reset done: ${r.scores} score ${r.scores === 1 ? 'sheet' : 'sheets'} removed (a copy is archived on the server). Tablets clear their copies on their next sync.`)
       })} />
       <section className="card">
         <h2>Change log</h2>
         {audit.length === 0 ? <p className="muted small">No changes yet.</p> : (
           <ul className="audit">
             {[...audit].reverse().map((a, i) => (
-              <li key={i}><time>{new Date(a.at).toLocaleTimeString()}</time>{describe(a, judges)}</li>
+              <li key={i}><time>{new Date(a.at).toLocaleTimeString()}</time>{describe(a, [...judges, ...(state?.absentJudges ?? [])])}</li>
             ))}
           </ul>
         )}
@@ -307,8 +332,12 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
   )
 }
 
-/** Wipe the rehearsal (UAT) data. Typing RESET is the guard against a mis-tap on the day. */
-function ResetCard({ scores, onReset }: { scores: number; onReset: () => Promise<void> }) {
+/**
+ * Wipe the rehearsal (UAT) data. Typing RESET is the guard against a mis-tap on the day;
+ * once the result is locked it takes a longer phrase.
+ */
+function ResetCard({ scores, locked, onReset }: { scores: number; locked: boolean; onReset: (phrase: string) => Promise<void> }) {
+  const phrase = locked ? 'RESET LOCKED RESULT' : 'RESET'
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   return (
@@ -319,12 +348,13 @@ function ResetCard({ scores, onReset }: { scores: number; onReset: () => Promise
         deliberation and the change log, on the server and on every tablet. Judges, their names and all PINs stay.
         Never use this during the Grand Final.
       </p>
+      {locked && <p className="banner">The result is locked. Resetting deletes the Grand Final result too.</p>}
       <div className="row reset-row">
-        <input type="text" placeholder="Type RESET" value={text} onChange={(e) => setText(e.target.value)} aria-label="Type RESET to confirm" />
-        <button className="secondary danger" disabled={text !== 'RESET' || busy} onClick={() => {
-          if (!window.confirm('Delete all event data now? This cannot be undone.')) return
+        <input type="text" placeholder={`Type ${phrase}`} value={text} onChange={(e) => setText(e.target.value)} aria-label={`Type ${phrase} to confirm`} />
+        <button className="secondary danger" disabled={text !== phrase || busy} onClick={() => {
+          if (!window.confirm('Delete all event data now? A copy is kept on the server, but tablets lose sheets they have not sent yet.')) return
           setBusy(true)
-          void onReset().finally(() => {
+          void onReset(phrase).finally(() => {
             setBusy(false)
             setText('')
           })
@@ -334,7 +364,7 @@ function ResetCard({ scores, onReset }: { scores: number; onReset: () => Promise
   )
 }
 
-const initials = (name: string) => name.replace(/^(Mba|Pak|Bu|Dr\.?|Prof\.?)\s+/i, '').split(/\s+/).map((w) => w[0]).join('').slice(0, 3).toUpperCase() || name
+const initials = (name: string) => name.replace(/^(Mba|Pak|Bu|Mr\.?|Mrs\.?|Ms\.?|Dr\.?|Prof\.?)\s+/i, '').split(/\s+/).map((w) => w[0]).join('').slice(0, 3).toUpperCase() || name
 
 function describe(a: AuditEntry, judges: Judge[]): string {
   const d = a.detail as Record<string, string | number>
@@ -352,9 +382,13 @@ function describe(a: AuditEntry, judges: Judge[]): string {
     }
     case 'reorder_rank': return `${team}: Rank ${d.from} → ${d.to}. ${d.reason}`
     case 'lock_result': return 'Locked the result'
+    case 'open_deliberation': return 'Opened the judges\' deliberation'
+    case 'close_deliberation': return 'Closed the judges\' deliberation'
     case 'set_order': return 'Changed the running order'
     case 'now_presenting': return d.teamId ? `On stage: ${team}` : 'Stage cleared'
     case 'start_timer': return `Timer started for ${team}`
+    case 'judge_absent': return `${judge} marked absent: scores not counted`
+    case 'judge_back': return `${judge} back on the panel`
     case 'reset': return `Event data reset (${d.scores} score sheets removed)`
     case 'tie_pick': return `Tie in ${CATEGORIES.find((c) => c.id === d.category)?.name ?? d.category}: ${a.actor === 'admin' ? 'operator recorded' : `${judges.find((j) => j.id === a.actor)?.name ?? a.actor} chose`} ${team}`
     default: return a.action
@@ -432,7 +466,7 @@ function JudgeEditor({ judge, judges, onSave, onBack }: {
             {pin2 !== '' && pinMismatch && <span className="small warn">The two PINs do not match.</span>}
           </label>
         )}
-        {pin !== '' && <p className="small muted">The judge keeps using their tablet until they log out; the new PIN is needed the next time they log in. Give it to them in person.</p>}
+        {pin !== '' && <p className="small muted">The judge's tablet logs out within a few seconds of saving, and any taps it has not sent yet stay on it until the judge logs in again with the new PIN on that tablet. Give them the new PIN in person, ideally while their tablet shows Synced.</p>}
         {error && <p className="banner">{error}</p>}
         <div className="editor-actions">
           <button type="button" className="secondary" onClick={onBack}>Cancel</button>

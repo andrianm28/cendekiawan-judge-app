@@ -100,6 +100,11 @@ export function stepCurrent(r: RunOrder, delta: 1 | -1): Partial<RunOrder> {
   return { current: next }
 }
 
+/** Every team has presented: the stage is empty and the show has reached its last category. */
+export function showFinished(r: RunOrder): boolean {
+  return !r.current && (r.reached ?? -1) >= blocks(r.order).length - 1
+}
+
 /** Can the operator step back from the team on stage without leaving its category? */
 export function canStepBack(r: RunOrder): boolean {
   if (!r.current) return false

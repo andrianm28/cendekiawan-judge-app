@@ -33,7 +33,9 @@ export interface FinalRank extends ProposedRank {
  */
 export function applyOrder(proposed: ProposedRank[], d: Deliberation): { ranks: FinalRank[]; stale: boolean } {
   const ids = proposed.map((p) => p.winner.team.id)
-  const fits = d.order.length === ids.length && ids.every((id) => d.order.includes(id))
+  // A saved swap no longer fits when a later score change gave the two winners different
+  // averages: the scores' order applies again, so Lock is never stuck on a stale swap.
+  const fits = d.order.length === ids.length && ids.every((id) => d.order.includes(id)) && keepsScoreOrder(proposed, d.order)
   const order = fits ? d.order : ids
   const ranks = order.map((id, i) => {
     const p = proposed.find((x) => x.winner.team.id === id)!

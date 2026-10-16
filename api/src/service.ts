@@ -8,7 +8,7 @@ import { CATEGORIES, categoryOf, TEAMS, type CategoryId } from '../../web/src/do
 import { categoryTies, submittedSheets } from '../../web/src/domain/ties'
 import { proposeRanks, rankCategory } from '../../web/src/domain/ranking'
 import { hashPin, pinKey, signToken, verifyPin, type Session } from './auth'
-import type { Store, StoredScore } from './store'
+import type { JudgeAccount, Store, StoredScore } from './store'
 
 export class ApiError extends Error {
   status: number
@@ -35,6 +35,19 @@ const SESSION_DAYS = 365
  */
 export const CORRECTION_STEP = 1000
 
+/** Wrong PINs allowed per window before every login pauses until the window ends. */
+export const LOGIN_MAX_FAILURES = 20
+const LOGIN_WINDOW_MS = 15 * 60_000
+
+/** Highest sheet version accepted: far above any tablet's tap count plus corrections. */
+const MAX_VERSION = 1_000_000_000
+
+/** What the operator types to reset after the result has been locked. */
+export const RESET_LOCKED = 'RESET LOCKED RESULT'
+
+/** Archive snapshot size limit, under DynamoDB's 400 KB item limit. */
+const ARCHIVE_LIMIT = 350_000
+
 export interface ScoreInput {
   sheet: PartialSheet
   note: string
@@ -54,7 +67,43 @@ export class JudgingService {
     this.now = now
   }
 
+  /**
+   * The judges who score: everyone the operator has not marked absent. An absent judge's
+   * sheets leave the averages, the lock check and the ties, so every team is judged by the
+   * same panel.
+   */
+  private async panel() {
+    const [judges, absent, scores] = await Promise.all([this.store.getJudges(), this.store.getAbsent(), this.store.listScores()])
+    const present = judges.filter((j) => !absent.includes(j.id))
+    return { judges, absent, present, scores: scores.filter((x) => !absent.includes(x.judgeId)) }
+  }
+
   async login(pin: string) {
+    // Too many wrong PINs anywhere pauses every judge login for a while. Tablets already
+    // logged in are not affected, and guessing a 6-digit PIN becomes a matter of weeks.
+    const now = this.now().getTime()
+    const f = await this.store.getLoginFailures()
+    const open = f && now - f.since < LOGIN_WINDOW_MS ? f : { since: now, count: 0 }
+    if (open.count >= LOGIN_MAX_FAILURES) {
+      // The operator can still log in (an 8-digit PIN, so guessing stays impractical even
+      // unthrottled here), and doing so clears the pause for the judges.
+      const admin = await this.store.getAdminPinHash()
+      if (/^\d{4,8}$/.test(pin) && admin && verifyPin(pin, admin)) {
+        await this.store.putLoginFailures({ since: now, count: 0 })
+        return this.checkPin(pin)
+      }
+      const minutes = Math.ceil((open.since + LOGIN_WINDOW_MS - now) / 60000)
+      throw new ApiError(429, 'too_many_tries', `Too many wrong PINs. Try again in ${minutes} min, or ask the operator.`)
+    }
+    try {
+      return await this.checkPin(pin)
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'bad_pin') await this.store.putLoginFailures({ since: open.since, count: open.count + 1 })
+      throw e
+    }
+  }
+
+  private async checkPin(pin: string) {
     if (!/^\d{4,8}$/.test(pin)) throw new ApiError(401, 'bad_pin', 'Wrong PIN')
     const exp = Math.floor(this.now().getTime() / 1000) + SESSION_DAYS * 86400
     const admin = await this.store.getAdminPinHash()
@@ -89,7 +138,7 @@ export class JudgingService {
   async stage() {
     const r = normalizeRunOrder(await this.store.getRunOrder())
     return {
-      runOrder: { order: r.order, current: r.current, startedAt: r.startedAt, pausedAt: r.pausedAt, pausedMs: r.pausedMs },
+      runOrder: { order: r.order, current: r.current, startedAt: r.startedAt, pausedAt: r.pausedAt, pausedMs: r.pausedMs, reached: r.reached },
       serverTime: this.now().toISOString(),
     }
   }
@@ -100,15 +149,15 @@ export class JudgingService {
    * sheets); the admin gets everything.
    */
   async state(s: Session) {
-    const [judges, closedGroups, scores, runOrder, picks] = await Promise.all([
-      this.store.getJudges(),
+    const [{ judges, absent, present, scores }, closedGroups, runOrder, picks] = await Promise.all([
+      this.panel(),
       this.store.getClosedGroups(),
-      this.store.listScores(),
       this.store.getRunOrder(),
       this.store.getTieBreaks(),
     ])
-    const publicJudges = judges.map(({ id, group, name, title }) => ({ id, group, name, title: title ?? '' }))
-    const ties = categoryTies(scores, judges.length, picks)
+    const pub = ({ id, group, name, title }: JudgeAccount) => ({ id, group, name, title: title ?? '' })
+    const publicJudges = judges.map(pub)
+    const ties = categoryTies(scores, present.length, picks)
     const deliberation = (await this.store.getDeliberation()) ?? null
     const common = {
       closedGroups,
@@ -124,13 +173,18 @@ export class JudgingService {
       return {
         ...common,
         judges: publicJudges.filter((j) => j.id === s.sub),
-        scores: scores.filter((x) => x.judgeId === s.sub),
+        absent: absent.includes(s.sub),
+        // An absent judge's own sheets stay on their tablet; they just stop counting.
+        scores: (await this.store.listScores()).filter((x) => x.judgeId === s.sub),
         ties: ties.filter((t) => categoryOf(t.category).group === me?.group),
       }
     }
+    // Screens count and average over `judges`, so they list the panel only; absent judges
+    // come separately so the operator can bring them back.
     return {
       ...common,
-      judges: publicJudges,
+      judges: present.map(pub),
+      absentJudges: judges.filter((j) => absent.includes(j.id)).map(pub),
       scores,
       ties,
       tieBreaks: picks,
@@ -147,6 +201,9 @@ export class JudgingService {
     if (!judge || !team) throw new ApiError(404, 'not_found', 'Unknown judge or team')
     validate(input)
     await this.requireUnlocked()
+    if ((await this.store.getAbsent()).includes(judge.id)) {
+      throw new ApiError(423, 'absent', 'You are marked absent, so your scores do not count. Ask the operator.')
+    }
     if ((await this.store.getClosedGroups()).includes(categoryOf(team.category).group)) {
       throw new ApiError(423, 'group_closed', 'This category is closed. Ask the operator to change a score.')
     }
@@ -178,10 +235,10 @@ export class JudgingService {
    * five current category winners.
    */
   private async requireLockable(d: Deliberation) {
-    const [judges, scores, picks] = await Promise.all([this.store.getJudges(), this.store.listScores(), this.store.getTieBreaks()])
+    const [{ present, scores }, picks] = await Promise.all([this.panel(), this.store.getTieBreaks()])
     const sheets = submittedSheets(scores)
     const submitted = [...sheets.values()].reduce((a, x) => a + x.length, 0)
-    if (submitted < TEAMS.length * judges.length) throw new ApiError(409, 'not_all_in', 'Every judge must submit every team before the result is locked')
+    if (submitted < TEAMS.length * present.length) throw new ApiError(409, 'not_all_in', 'Every judge must submit every team before the result is locked')
     const standings = CATEGORIES.map((c) => rankCategory(c.id, TEAMS, sheets, picks[c.id]?.teamId))
     if (standings.some((s) => s.tiedAtTop)) throw new ApiError(409, 'tie_open', 'A category tie still needs its winner')
     const winners = proposeRanks(standings).map((r) => r.winner.team.id)
@@ -203,6 +260,7 @@ export class JudgingService {
     if (!(await this.store.getJudges()).some((j) => j.id === judgeId) || !TEAMS.some((t) => t.id === teamId)) {
       throw new ApiError(404, 'not_found', 'Unknown judge or team')
     }
+    if ((await this.store.getAbsent()).includes(judgeId)) throw new ApiError(409, 'absent', 'This judge is marked absent. Bring them back first.')
     // No sheet yet (a tablet failed before saving): the operator enters it from the paper backup.
     const prev = (await this.store.getScore(judgeId, teamId)) ?? { judgeId, teamId, sheet: {}, note: '', status: 'draft' as const, version: 0, updatedAt: '' }
     const next: StoredScore = { ...prev, ...input, version: prev.version + CORRECTION_STEP, updatedAt: this.now().toISOString() }
@@ -266,15 +324,35 @@ export class JudgingService {
     return { id: j.id, group: j.group, name: j.name, title: j.title ?? '' }
   }
 
+  /**
+   * Mark a judge absent (did not come, or left mid-event) or bring them back. Their sheets
+   * stay stored but leave the averages, the lock check and the ties until they are back.
+   * Refused once the result is locked, and at least two judges stay on the panel.
+   */
+  async setJudgeAbsent(s: Session, judgeId: string, absent: boolean) {
+    requireAdmin(s)
+    await this.requireUnlocked()
+    const [judges, current] = await Promise.all([this.store.getJudges(), this.store.getAbsent()])
+    if (!judges.some((j) => j.id === judgeId)) throw new ApiError(404, 'not_found', 'Unknown judge')
+    if (absent && !current.includes(judgeId) && judges.length - current.length <= 2) {
+      throw new ApiError(409, 'panel_too_small', 'At least two judges must stay on the panel')
+    }
+    await this.store.setAbsent(judgeId, absent)
+    await this.audit(absent ? 'judge_absent' : 'judge_back', { judgeId })
+    return { absent: await this.store.getAbsent() }
+  }
+
   async putDeliberation(s: Session, d: Deliberation) {
     requireAdmin(s)
     const prev = await this.store.getDeliberation()
     if (prev?.lockedAt) throw new ApiError(423, 'locked', 'The result is locked')
     const prevLog = prev?.log.length ?? 0
+    if (!Array.isArray(d?.order) || !Array.isArray(d?.log)) throw new ApiError(400, 'bad_deliberation', 'Invalid deliberation')
     if (d.log.length < prevLog) throw new ApiError(409, 'stale', 'Deliberation changed on another device', prev)
+    if (d.log.slice(prevLog).some((c) => typeof c?.reason !== 'string' || !c.reason.trim())) throw new ApiError(400, 'reason_required', 'A reason is required to change the order')
     if (d.lockedAt) await this.requireLockable(d)
     if (d.order.length > 0) {
-      const [scores, picks] = await Promise.all([this.store.listScores(), this.store.getTieBreaks()])
+      const [{ scores }, picks] = await Promise.all([this.panel(), this.store.getTieBreaks()])
       const sheets = submittedSheets(scores)
       const proposed = proposeRanks(CATEGORIES.map((c) => rankCategory(c.id, TEAMS, sheets, picks[c.id]?.teamId)))
       if (!keepsScoreOrder(proposed, d.order)) throw new ApiError(409, 'not_tied', 'Only winners with exactly the same average can change places')
@@ -328,7 +406,8 @@ export class JudgingService {
       throw new ApiError(403, 'forbidden', 'Only the judge who owns this category can break its tie')
     }
     if ((await this.store.getDeliberation())?.lockedAt) throw new ApiError(423, 'locked', 'The result is locked')
-    const tie = categoryTies(await this.store.listScores(), judges.length, {}).find((t) => t.category === category)
+    const { present, scores } = await this.panel()
+    const tie = categoryTies(scores, present.length, {}).find((t) => t.category === category)
     if (!tie) throw new ApiError(409, 'no_tie', 'There is no tie to break in this category (or scoring is not complete)')
     if (!tie.tied.some((t) => t.teamId === teamId)) throw new ApiError(400, 'not_tied', 'That team is not one of the tied teams')
     const pick = { teamId, by: s.role === 'admin' ? 'admin' : s.sub, at: this.now().toISOString() }
@@ -344,9 +423,26 @@ export class JudgingService {
    */
   async resetEventData(s: Session, confirm: string) {
     requireAdmin(s)
-    if (confirm !== 'RESET') throw new ApiError(400, 'confirm_required', 'Type RESET to confirm')
-    const counts = { scores: (await this.store.listScores()).length }
+    const deliberation = await this.store.getDeliberation()
+    // A locked result is the Grand Final's outcome: wiping it takes a deliberate, different phrase.
+    const phrase = deliberation?.lockedAt ? RESET_LOCKED : 'RESET'
+    if (confirm !== phrase) throw new ApiError(400, 'confirm_required', `Type ${phrase} to confirm`)
+    const [scores, judges, absent, closedGroups, runOrder, tieBreaks, audit, oldEpoch] = await Promise.all([
+      this.store.listScores(), this.store.getJudges(), this.store.getAbsent(), this.store.getClosedGroups(),
+      this.store.getRunOrder(), this.store.getTieBreaks(), this.store.listAudit(), this.store.getEpoch(),
+    ])
+    const counts = { scores: scores.length }
     const epoch = this.now().toISOString()
+    // Keep everything that is about to be deleted, so a mistaken reset can be undone by hand.
+    const snapshot: Record<string, unknown> = {
+      archivedAt: epoch, epoch: oldEpoch, judges: judges.map(({ id, group, name, title }) => ({ id, group, name, title })),
+      absent, closedGroups, runOrder: runOrder ?? null, tieBreaks, deliberation: deliberation ?? null, scores, audit,
+    }
+    // One DynamoDB item holds at most 400 KB; drop the oldest change-log entries if needed.
+    while (JSON.stringify(snapshot).length > ARCHIVE_LIMIT && (snapshot.audit as unknown[]).length > 0) {
+      snapshot.audit = (snapshot.audit as unknown[]).slice(Math.ceil((snapshot.audit as unknown[]).length / 4))
+    }
+    await this.store.archive(epoch, snapshot)
     await this.store.resetEventData(epoch)
     await this.audit('reset', counts)
     return { epoch, ...counts }
@@ -367,16 +463,19 @@ function requireAdmin(s: Session) {
 }
 
 function validate(input: ScoreInput) {
-  const keys = Object.keys(input.sheet ?? {})
+  if (typeof input?.sheet !== 'object' || input.sheet === null || Array.isArray(input.sheet)) throw new ApiError(400, 'bad_score', 'Invalid score sheet')
+  const keys = Object.keys(input.sheet)
   const ok =
     keys.every((k) => (CRITERIA as readonly string[]).includes(k)) &&
     Object.values(input.sheet).every((v) => v === 1 || v === 2 || v === 3 || v === 4) &&
     typeof input.note === 'string' &&
     input.note.length <= 200 &&
     (input.status === 'draft' || input.status === 'submitted') &&
-    Number.isInteger(input.version)
+    Number.isInteger(input.version) &&
+    // Tablets count taps from 1; a huge version would lock the judge out of their own sheet.
+    input.version >= 0 && input.version <= MAX_VERSION
   if (!ok) throw new ApiError(400, 'bad_score', 'Invalid score sheet')
   if (input.status === 'submitted' && !isComplete(input.sheet)) {
-    throw new ApiError(400, 'incomplete', 'All 9 criteria are needed to submit')
+    throw new ApiError(400, 'incomplete', `All ${CRITERIA.length} criteria are needed to submit`)
   }
 }

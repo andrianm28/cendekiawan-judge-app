@@ -17,4 +17,12 @@ describe('scoresCsv', () => {
     expect(lines[1]).toBe('1,1,Smart Education,MMU,Virtual Science Lab Assistant,Virtual Science Lab Assistant,Mba Yashinta,2,,,,,,,,,,,draft,,x')
     expect(lines[2]).toBe('3,1,Smart Education,APU,EC 1+1,LangHub,Mba Yashinta,3,3,3,3,4,4,2,2,75,79.69,77,submitted,"Clear, ""real"" use case, good demo",2026-10-20T02:20:00Z')
   })
+
+  it('neutralises notes that a spreadsheet would run as a formula', () => {
+    const csv = scoresCsv(['=HYPERLINK("http://x","y")', '+SUM(A1)', '-1+2', '@cmd', 'fine'].map((note) => (
+      { team: TEAMS[0], judgeName: 'J', sheet: {}, note, status: 'draft', updatedAt: 'x' })))
+    const notes = csv.trimEnd().split('\r\n').slice(1).map((l) => l.split(',').slice(-2, -1)[0])
+    expect(notes.slice(1, 5)).toEqual(["'+SUM(A1)", "'-1+2", "'@cmd", 'fine'])
+    expect(csv).toContain(`"'=HYPERLINK(""http://x""`)
+  })
 })

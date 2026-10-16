@@ -8,9 +8,11 @@
 //   PUT  /admin/scores/{judgeId}/{teamId}  operator correction { sheet, note, status, reason }
 //   POST /admin/groups/{group}          { closed: boolean }
 //   PUT  /admin/judges/{judgeId}        { name?, title?, group?, pin? } (group swaps with its owner)
+//   POST /admin/judges/{judgeId}/absent { absent: boolean } judge leaves (or rejoins) the panel
 //   PUT  /admin/deliberation            Deliberation
 //   PUT  /admin/runorder                { order?, current?, timer?: 'start' | 'reset' }
 //   POST /admin/reset                   { confirm: 'RESET' } wipes event data, keeps judges and PINs
+//                                       (after Lock: 'RESET LOCKED RESULT'; a copy is archived first)
 //   GET  /admin/audit
 
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda'
@@ -18,7 +20,7 @@ import { verifyToken, type Session } from './auth'
 import { dynamoStore } from './dynamoStore'
 import { ApiError, JudgingService } from './service'
 
-const ROUTE_WORDS = ['state', 'scores', 'admin', 'groups', 'judges', 'deliberation', 'audit', 'ties', 'runorder', 'reset']
+const ROUTE_WORDS = ['state', 'scores', 'admin', 'groups', 'judges', 'deliberation', 'audit', 'ties', 'runorder', 'reset', 'absent']
 
 type Event = Pick<APIGatewayProxyEventV2, 'requestContext' | 'headers' | 'body' | 'rawPath'> & {
   requestContext: { http: { method: string } }
@@ -31,6 +33,7 @@ export function makeHandler(service: JudgingService, secret: string) {
     try {
       if (method === 'OPTIONS') return reply(204, null)
       const body = event.body ? JSON.parse(event.body) : {}
+      if (typeof body !== 'object' || body === null || Array.isArray(body)) throw new ApiError(400, 'bad_json', 'Body must be a JSON object')
       if (method === 'POST' && parts[0] === 'login') return reply(200, await service.login(String(body.pin ?? '')))
       if (method === 'GET' && parts.join('/') === 'stage') return reply(200, await service.stage())
 
@@ -52,6 +55,8 @@ export function makeHandler(service: JudgingService, secret: string) {
           return reply(200, await service.correctScore(session, parts[2], parts[3], body, String(body.reason ?? '')))
         case 'POST /admin/groups/:':
           return reply(200, await service.setGroupClosed(session, Number(parts[2]), body.closed === true))
+        case 'POST /admin/judges/:/absent':
+          return reply(200, await service.setJudgeAbsent(session, parts[2], body.absent === true))
         case 'PUT /admin/judges/:':
           return reply(200, await service.updateJudge(session, parts[2], body))
         case 'PUT /admin/deliberation':
