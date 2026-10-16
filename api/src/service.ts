@@ -79,12 +79,19 @@ export class JudgingService {
   }
 
   async login(pin: string) {
-    // Too many wrong PINs anywhere pauses every login for a while. Tablets already logged
-    // in are not affected, and guessing a 6-digit PIN becomes a matter of weeks, not hours.
+    // Too many wrong PINs anywhere pauses every judge login for a while. Tablets already
+    // logged in are not affected, and guessing a 6-digit PIN becomes a matter of weeks.
     const now = this.now().getTime()
     const f = await this.store.getLoginFailures()
     const open = f && now - f.since < LOGIN_WINDOW_MS ? f : { since: now, count: 0 }
     if (open.count >= LOGIN_MAX_FAILURES) {
+      // The operator can still log in (an 8-digit PIN, so guessing stays impractical even
+      // unthrottled here), and doing so clears the pause for the judges.
+      const admin = await this.store.getAdminPinHash()
+      if (/^\d{4,8}$/.test(pin) && admin && verifyPin(pin, admin)) {
+        await this.store.putLoginFailures({ since: now, count: 0 })
+        return this.checkPin(pin)
+      }
       const minutes = Math.ceil((open.since + LOGIN_WINDOW_MS - now) / 60000)
       throw new ApiError(429, 'too_many_tries', `Too many wrong PINs. Try again in ${minutes} min, or ask the operator.`)
     }

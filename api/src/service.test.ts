@@ -497,9 +497,10 @@ describe('guards found in the 16 Oct UAT', () => {
 })
 
 describe('PIN guessing', () => {
-  it('pauses every login after too many wrong PINs, keeps logged-in devices working, and reopens after the window', async () => {
+  it('pauses judge logins after too many wrong PINs, keeps logged-in devices and the operator working, and reopens after the window', async () => {
     const store = memoryStore()
     await store.putJudges([{ id: 'g1', group: 1, name: 'J1', pinHash: hashPin('111111') }])
+    await store.putAdminPinHash(hashPin('87654321'))
     let t = Date.parse('2026-10-20T01:00:00Z')
     const service = new JudgingService(store, SECRET, () => new Date(t))
     const handler = makeHandler(service, SECRET)
@@ -509,6 +510,11 @@ describe('PIN guessing', () => {
     expect(blocked.status).toBe(429)
     expect(blocked.body.code).toBe('too_many_tries')
     expect((await call(handler, 'GET', '/state', undefined, tok)).status).toBe(200)
+    // The operator still gets in, and that lifts the pause for the judges.
+    expect((await call(handler, 'POST', '/login', { pin: '87654321' })).body.role).toBe('admin')
+    expect((await call(handler, 'POST', '/login', { pin: '111111' })).status).toBe(200)
+    for (let i = 0; i < LOGIN_MAX_FAILURES; i++) await call(handler, 'POST', '/login', { pin: String(300000 + i) })
+    expect((await call(handler, 'POST', '/login', { pin: '111111' })).status).toBe(429)
     t += 16 * 60_000
     expect((await call(handler, 'POST', '/login', { pin: '111111' })).status).toBe(200)
   })

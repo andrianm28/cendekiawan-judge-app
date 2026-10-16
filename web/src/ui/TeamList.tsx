@@ -5,6 +5,7 @@ import type { Judge } from '../judges'
 import type { ScoreRecord } from '../storage/scoreStore'
 import { Header } from './Header'
 import { JudgeBadge } from './JudgeBadge'
+import { getStore } from './useScores'
 
 interface Props {
   judge: Judge
@@ -39,8 +40,9 @@ export function TeamList({ judge, teams, records, onOpen, onLogout, current, sta
           <span className="sub">{done} of {teams.length} submitted · up to 5 minutes each</span>
         </div>
         {status}
-        <button className="link" onClick={() => {
-          const unsent = records.filter((r) => r.judgeId === judge.id && !r.synced).length
+        <button className="link" onClick={async () => {
+          // Read the tablet's store, not the screen's copy: a sync marks records sent without re-rendering.
+          const unsent = (await (await getStore()).listForJudge(judge.id)).filter((r) => !r.synced).length
           if (!unsent || window.confirm(`${unsent} ${unsent === 1 ? 'score has' : 'scores have'} not reached the server yet. If you log out now ${unsent === 1 ? 'it stays' : 'they stay'} on this tablet until you log in here again. Log out anyway?`)) onLogout()
         }}>Log out</button>
       </Header>

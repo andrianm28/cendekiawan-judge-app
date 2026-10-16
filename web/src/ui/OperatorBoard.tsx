@@ -364,7 +364,7 @@ function ResetCard({ scores, locked, onReset }: { scores: number; locked: boolea
   )
 }
 
-const initials = (name: string) => name.replace(/^(Mba|Pak|Bu|Dr\.?|Prof\.?)\s+/i, '').split(/\s+/).map((w) => w[0]).join('').slice(0, 3).toUpperCase() || name
+const initials = (name: string) => name.replace(/^(Mba|Pak|Bu|Mr\.?|Mrs\.?|Ms\.?|Dr\.?|Prof\.?)\s+/i, '').split(/\s+/).map((w) => w[0]).join('').slice(0, 3).toUpperCase() || name
 
 function describe(a: AuditEntry, judges: Judge[]): string {
   const d = a.detail as Record<string, string | number>
