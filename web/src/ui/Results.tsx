@@ -196,7 +196,7 @@ export function Results({ records, onBack, io = localDeliberation, judges = JUDG
                       {tie.tied.map((t) => (
                         <button key={t.teamId} className="secondary" disabled={tie.pick === t.teamId}
                           onClick={() => window.confirm(`Record ${TEAMS.find((x) => x.id === t.teamId)?.appName} as the ${categoryOf(s.category).name} winner?`) && void pickTie(s.category, t.teamId)}>
-                          {TEAMS.find((x) => x.id === t.teamId)?.appName} (D1 {t.d1}, D4 {t.d4})
+                          {TEAMS.find((x) => x.id === t.teamId)?.appName} (Real problem {t.d1}, Usable in real life {t.d4})
                         </button>
                       ))}
                     </div>

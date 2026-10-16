@@ -1,7 +1,8 @@
 // CSV exports for the archive and the event report.
 
 import { categoryOf, type Team } from './teams'
-import { c1, c2, CRITERIA, finalScore, isComplete, type PartialSheet } from './scoring'
+import { ALL_CRITERIA } from './rubric'
+import { c1, c2, finalScore, isComplete, type PartialSheet } from './scoring'
 import type { FinalRank } from './deliberation'
 
 export interface ScoreRow {
@@ -21,7 +22,7 @@ const toCsv = (rows: (string | number)[][]) => rows.map((r) => r.map(cell).join(
 
 export function scoresCsv(rows: ScoreRow[]): string {
   const header = ['Order', 'Group', 'Category', 'University', 'Team', 'App', 'Judge',
-    ...CRITERIA.map((k) => k.toUpperCase()), 'C1', 'C2', 'Final', 'Status', 'Note', 'Updated']
+    ...ALL_CRITERIA.map((c) => `${c.code} ${c.name}`), 'C1', 'C2', 'Final', 'Status', 'Note', 'Updated']
   const body = [...rows]
     .sort((a, b) => a.team.order - b.team.order)
     .map((r) => {
@@ -29,7 +30,7 @@ export function scoresCsv(rows: ScoreRow[]): string {
       const s = r.sheet
       const done = isComplete(s)
       return [r.team.order, cat.group, cat.name, r.team.university, r.team.teamName, r.team.appName, r.judgeName,
-        ...CRITERIA.map((k) => r.sheet[k] ?? ''),
+        ...ALL_CRITERIA.map((c) => r.sheet[c.key] ?? ''),
         done ? c1(s) : '', done ? c2(s) : '', done ? finalScore(s) : '',
         r.status, r.note, r.updatedAt]
     })
