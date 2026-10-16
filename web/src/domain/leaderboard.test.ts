@@ -29,7 +29,7 @@ describe('buildLeaderboard', () => {
     expect(b.rows[1].award).toBe('Rank 2')
     expect(b.rows[2].award).toBeUndefined()
     expect(b.categories[0].rows.map((r) => r.result.team.id)).toEqual(['t02', 't01'])
-    expect(b.rows[0].c1).toBe(85)
+    expect(b.rows[0].c1).toBe(84.5)
   })
 
   it('counts complete drafts as provisional when asked, and ties share a rank', () => {

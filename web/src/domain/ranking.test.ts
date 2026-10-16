@@ -47,15 +47,15 @@ describe('rankCategory', () => {
   })
 
   it('ranks by the unrounded average, so two teams both showing 80 are not a tie', () => {
-    // 36 × final: t06 2875 twice → 79.86; t05 3025 and 2700 → 79.51; both round to 80.
+    // 37 × final: t05 3175 and 2775 → 80.41; t06 2950 twice → 79.73; both round to 80.
     const scores = new Map([
-      ['t05', [sheet([4, 3, 3, 4, 3], [3, 4, 3, 3]), sheet([3, 3, 3, 3, 3], [3, 3, 3, 3])]],
+      ['t05', [sheet([3, 3, 3, 3, 3], [4, 4, 3, 4]), sheet([3, 3, 3, 3, 3], [3, 3, 3, 3])]],
       ['t06', [WARIS, WARIS]],
     ])
     const s = rankCategory('health', TEAMS, scores)
     expect(s.ranked.map((r) => [r.team.id, r.final, exactFinal(r)])).toEqual([
-      ['t06', 80, '79.86'],
-      ['t05', 80, '79.51'],
+      ['t05', 80, '80.41'],
+      ['t06', 80, '79.73'],
     ])
     expect(s.tiedAtTop).toBe(false)
   })
