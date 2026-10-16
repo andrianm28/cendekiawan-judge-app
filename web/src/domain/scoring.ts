@@ -2,8 +2,11 @@
 //
 // Eight criteria. V3 "Reliable" was dropped because the demo is a pre-recorded video, so teams
 // never show a failing app (ADR 0006); D2 now scores use of AWS, not "works well" (ADR 0007).
-// All eight weigh the same, 12.5% each (ADR 0008): Final = sum of levels ÷ 32 × 100, so
-//   32 × Final = 100 × (D1+…+D5 + V1+V2+V4), an exact integer from 800 to 3200.
+// Weights stay in the ToT UM rubric's proportions (ADR 0008): there each D counts 10% of the
+// final, V1 17.5%, V2 12.5%, V3 10%, V4 10%. Dropping V3 and scaling the rest back to 100%
+// gives points 20 per D, 35 V1, 25 V2, 20 V4 out of 180, so
+//   36 × Final = 100 (D1+…+D5) + 175 V1 + 125 V2 + 100 V4, an exact integer from 900 to 3600.
+// Shown weights: D 11.1% each, V1 19.4%, V2 13.9%, V4 11.1%.
 // C1 (D side) and C2 (V side) are only subtotals for the operator's views.
 // Rounding is half-up (69.5 → 70), as in the ToT Judging Workspace.
 
@@ -19,9 +22,9 @@ export type ScoreSheet = Record<CriterionKey, Level>
 export type PartialSheet = Partial<Record<CriterionKey, Level>>
 
 /** Each criterion's points per level; Final = Σ weight × level ÷ FINAL_SCALE. */
-export const WEIGHTS: Record<CriterionKey, number> = { d1: 100, d2: 100, d3: 100, d4: 100, d5: 100, v1: 100, v2: 100, v4: 100 }
-/** All levels at 4 give 4 × Σ WEIGHTS = 3200 = 100 × FINAL_SCALE. */
-export const FINAL_SCALE = 32
+export const WEIGHTS: Record<CriterionKey, number> = { d1: 100, d2: 100, d3: 100, d4: 100, d5: 100, v1: 175, v2: 125, v4: 100 }
+/** All levels at 4 give 4 × Σ WEIGHTS = 3600 = 100 × FINAL_SCALE. */
+export const FINAL_SCALE = 36
 
 export function isComplete(sheet: PartialSheet): sheet is ScoreSheet {
   return CRITERIA.every((k) => sheet[k] !== undefined)

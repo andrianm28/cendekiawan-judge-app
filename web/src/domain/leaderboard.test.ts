@@ -18,9 +18,9 @@ describe('buildLeaderboard', () => {
   it('ranks submitted teams overall and per category, leaving the rest unscored', () => {
     const b = buildLeaderboard(records, { includeDrafts: false })
     expect(b.rows.map((r) => [r.result.team.id, r.overallRank, r.categoryRank, r.result.final])).toEqual([
-      ['t02', 1, 1, 84],
-      ['t05', 2, 1, 78],
-      ['t01', 3, 2, 59],
+      ['t02', 1, 1, 85],
+      ['t05', 2, 1, 80],
+      ['t01', 3, 2, 60],
     ])
     expect(b.unscored).toHaveLength(17)
     expect(b.submitted).toBe(3)

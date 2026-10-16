@@ -1,6 +1,6 @@
 # D2 now scores "Built on AWS"
 
-Weights superseded by ADR 0008: all eight criteria now weigh 12.5%.
+Weights superseded by ADR 0008: ToT UM proportions, D 11.1% each.
 
 Decided by Elite Academy on 16 Oct 2026. This is an AWS programme and the invitation asks every team for a slide on the AWS services they used, but after ADR 0006 the rubric only touched AWS inside D3 ("does it really need AI on AWS?"). D2 comes back with a new meaning, **Built on AWS**: how well the app uses AWS, with Amazon Bedrock at its core, judged from the AWS slide and what the video shows. It asks how clearly the team shows what each service does and why they chose it, not whether the app works, so the reason for dropping "Works well" (ADR 0006) still holds. D3 now asks only whether the idea is new and really needs AI.
 

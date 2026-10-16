@@ -87,7 +87,7 @@ function Brand({ title }: { title: string }) {
 function Formula() {
   return (
     <p className="small">
-      Final = (sum of the eight levels) ÷ 32 × 100 (each criterion 12.5%), from 25 to 100,
+      Final = (sum of level × weight) ÷ 4 × 100 (weights in ToT UM proportions), from 25 to 100,
       rounded half up (69.5 → 70). Each team's final is the average of all judges. A tie at the top of a category is decided by that category's judge.
     </p>
   )

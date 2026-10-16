@@ -35,7 +35,7 @@ export const SEGMENTS: Segment[] = [
     title: 'Problem', time: '0:00–0:45',
     criteria: [
       {
-        key: 'd1', code: 'D1', name: 'Real problem', weight: '12.5%',
+        key: 'd1', code: 'D1', name: 'Real problem', weight: '11.1%',
         question: 'Is it a real problem for real people?',
         levels: {
           1: 'No problem stated, only the app',
@@ -50,7 +50,7 @@ export const SEGMENTS: Segment[] = [
     title: 'Solution', time: '0:45–1:30',
     criteria: [
       {
-        key: 'd3', code: 'D3', name: 'Fresh idea', weight: '12.5%',
+        key: 'd3', code: 'D3', name: 'Fresh idea', weight: '11.1%',
         question: 'How new is the idea, and does it really need AI?',
         levels: {
           1: 'A copy of a tutorial or sample app, little changed',
@@ -60,7 +60,7 @@ export const SEGMENTS: Segment[] = [
         },
       },
       {
-        key: 'd2', code: 'D2', name: 'Built on AWS', weight: '12.5%',
+        key: 'd2', code: 'D2', name: 'Built on AWS', weight: '11.1%',
         question: 'How well does the app use AWS, with Amazon Bedrock at its core?',
         levels: {
           1: 'AWS or Amazon Bedrock not shown or explained',
@@ -75,7 +75,7 @@ export const SEGMENTS: Segment[] = [
     title: 'Demo', time: '1:30–3:30',
     criteria: [
       {
-        key: 'v2', code: 'V2', name: 'Easy to use', weight: '12.5%',
+        key: 'v2', code: 'V2', name: 'Easy to use', weight: '13.9%',
         question: 'Could a new user use it without help?',
         levels: {
           1: 'Could not tell how to use it',
@@ -90,7 +90,7 @@ export const SEGMENTS: Segment[] = [
     title: 'Real-world impact', time: '3:30–4:15',
     criteria: [
       {
-        key: 'v1', code: 'V1', name: 'Clear impact', weight: '12.5%',
+        key: 'v1', code: 'V1', name: 'Clear impact', weight: '19.4%',
         question: 'Did they explain how it helps real people?',
         levels: {
           1: 'Only features, no real situation',
@@ -100,7 +100,7 @@ export const SEGMENTS: Segment[] = [
         },
       },
       {
-        key: 'd4', code: 'D4', name: 'Usable in real life', weight: '12.5%',
+        key: 'd4', code: 'D4', name: 'Usable in real life', weight: '11.1%',
         question: 'Could a real organisation use this now?',
         levels: {
           1: 'Only a school exercise',
@@ -110,7 +110,7 @@ export const SEGMENTS: Segment[] = [
         },
       },
       {
-        key: 'v4', code: 'V4', name: 'Can grow', weight: '12.5%',
+        key: 'v4', code: 'V4', name: 'Can grow', weight: '11.1%',
         question: 'Could it serve many more people?',
         levels: {
           1: 'Not mentioned',
@@ -125,7 +125,7 @@ export const SEGMENTS: Segment[] = [
     title: 'Closing', time: '4:15–5:00',
     criteria: [
       {
-        key: 'd5', code: 'D5', name: 'Clear pitch', weight: '12.5%',
+        key: 'd5', code: 'D5', name: 'Clear pitch', weight: '11.1%',
         question: 'Was the pitch clear and easy to follow?',
         levels: {
           1: 'Hard to follow',
