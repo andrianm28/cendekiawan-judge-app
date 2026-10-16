@@ -1,7 +1,8 @@
-// Deliberation: judges confirm or reorder the proposed Rank 1–5, each move with
-// a logged reason, then lock the result for the MC.
+// Deliberation: judges confirm the proposed Rank 1–5, order winners whose unrounded
+// averages are exactly equal (each move with a logged reason), then lock the result
+// for the MC. Winners with different averages keep their score order (ADR 0010).
 
-import { AWARDS, type ProposedRank } from './ranking'
+import { AWARDS, compareResults, sameFinal, type ProposedRank } from './ranking'
 
 export interface RankChange {
   at: string
@@ -41,7 +42,13 @@ export function applyOrder(proposed: ProposedRank[], d: Deliberation): { ranks: 
   return { ranks, stale: d.order.length > 0 && !fits }
 }
 
-/** Move the team at `from` (1-based rank) to `to`. A reason is required. */
+/** True when the winners at 1-based ranks `from` and `to` are next to each other and exactly tied. */
+export function canSwap(ranks: FinalRank[], from: number, to: number): boolean {
+  if (Math.abs(from - to) !== 1 || from < 1 || to < 1 || from > ranks.length || to > ranks.length) return false
+  return sameFinal(ranks[from - 1].winner, ranks[to - 1].winner)
+}
+
+/** Swap the team at `from` (1-based rank) with its exactly tied neighbour at `to`. A reason is required. */
 export function moveRank(
   ranks: FinalRank[],
   d: Deliberation,
@@ -55,6 +62,7 @@ export function moveRank(
   if (from < 1 || to < 1 || from > ranks.length || to > ranks.length || from === to) {
     throw new Error('Invalid move')
   }
+  if (!canSwap(ranks, from, to)) throw new Error('Only winners with exactly the same average can change places')
   const order = ranks.map((r) => r.winner.team.id)
   const [teamId] = order.splice(from - 1, 1)
   order.splice(to - 1, 0, teamId)
@@ -63,6 +71,17 @@ export function moveRank(
     order,
     log: [...d.log, { at: now.toISOString(), teamId, from, to, reason: reason.trim() }],
   }
+}
+
+/**
+ * True when `order` lists the proposed winners with no lower average above a higher
+ * one, so only exactly tied winners have changed places. An order that does not hold
+ * the current winners is left to `applyOrder`, which falls back to the proposal.
+ */
+export function keepsScoreOrder(proposed: ProposedRank[], order: string[]): boolean {
+  const byId = new Map(proposed.map((p) => [p.winner.team.id, p.winner]))
+  if (order.length !== byId.size || !order.every((id) => byId.has(id))) return true
+  return order.every((id, i) => i === 0 || sameFinal(byId.get(order[i - 1])!, byId.get(id)!) || compareResults(byId.get(order[i - 1])!, byId.get(id)!) < 0)
 }
 
 export function lock(ranks: FinalRank[], d: Deliberation, now: Date = new Date()): Deliberation {

@@ -12,7 +12,7 @@
 - **Closed category**: the operator closes a category; no judge can change those 4 teams' sheets afterwards (operator corrections still allowed, with a reason).
 - **Live leaderboard**: all teams ranked overall and per category from the scores in so far, refreshed every few seconds; for the operator laptop or a projector in the judges' room.
 - **Proposed rank**: the five category winners ordered by final into Rank 1–5. Winners with exactly the same unrounded average are marked as a tie for the judges to order. **Award** names: Rank 1 = Winner of AWS CendekiAwan, Rank 2, Rank 3, Rank 4 = Emerging Innovator, Rank 5 = Rising Innovator.
-- **Deliberation**: 12.05–12.35, where judges confirm or reorder the proposed ranks (with a logged reason) and lock the result.
+- **Deliberation**: 12.05–12.35, where judges confirm the proposed ranks, order only winners whose unrounded averages are exactly equal (with a logged reason, ADR 0010), and lock the result.
 - **MC sheet**: awards in announcement order, Rising → Emerging → Rank 3 → 2 → 1.
 - **Operator**: committee member on the laptop who runs the stage (running order, team on stage, pitch timer), tracks every judge's sheets, closes categories and corrects scores.
 - **Reset**: after a rehearsal, the operator wipes all event data (scores, tie picks, closed categories, running order, deliberation, change log). Judges, names and PINs stay. A new **epoch** tells tablets to drop their local copies.
