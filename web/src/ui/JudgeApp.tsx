@@ -9,6 +9,7 @@ import { TiePick } from './TiePick'
 import { getStore, useScores } from './useScores'
 
 const EVERY_MS = 3000
+const ABSENT_NOTE = 'The operator marked you absent, so your scores do not count. Ask the operator if this is wrong.'
 
 /**
  * A judge's tablet when connected to the server. The operator runs the show: when
@@ -86,6 +87,7 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
   const myTie = sync?.ties?.[0]
   const status = !sync ? null
     : !sync.online ? <span className="sync wait">Offline · {sync.waiting} saved on tablet</span>
+    : sync.rejected ? <span className="sync wait">{sync.rejected} not accepted · tell the operator</span>
     : sync.waiting ? <span className="sync wait">{sync.waiting} waiting</span>
     : <span className="sync ok">Synced</span>
 
@@ -108,7 +110,8 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
         key={`${team.id}-${epoch}`}
         team={team}
         record={records.find((r) => r.teamId === team.id && r.judgeId === judge.id)}
-        locked={closed(team)}
+        locked={closed(team) || !!sync?.absent}
+        lockedReason={sync?.absent ? ABSENT_NOTE : undefined}
         onStage={onStage}
         judge={judge}
         timer={onStage ? timerClock(runOrder, sync?.clockOffset ?? 0) : null}
@@ -131,6 +134,7 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
       onLogout={onLogout}
       notice={
         <>
+          {sync?.absent && <p className="banner">{ABSENT_NOTE}</p>}
           {myTie && (
             <button className="banner tie-banner" onClick={() => setTie(true)}>
               {myTie.pick

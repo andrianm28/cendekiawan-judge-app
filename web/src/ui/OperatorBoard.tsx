@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EMPTY_DELIBERATION } from '../domain/deliberation'
 import { canPutOnStage, canStepBack, DEFAULT_RUN_ORDER, stepCurrent, timerClock } from '../domain/runOrder'
-import { averagedFinal, finalScore, isComplete, type PartialSheet, type ScoreSheet } from '../domain/scoring'
+import { averagedFinal, CRITERIA, finalScore, isComplete, type PartialSheet, type ScoreSheet } from '../domain/scoring'
 import { CATEGORIES, categoryOf, TEAMS, type Team } from '../domain/teams'
 import type { TieSummary } from '../domain/ties'
 import type { Judge } from '../judges'
@@ -224,10 +224,31 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
                       {ago < LIVE_MS ? '● online' : seen ? `seen ${Math.round(ago / 60000)} min ago` : 'not logged in'}
                     </span>
                     <button className="secondary" onClick={() => setView({ kind: 'judge', judge })}>Edit judge</button>
+                    <button className="secondary danger" disabled={state.locked} onClick={() => {
+                      if (window.confirm(`Mark ${judge.name} absent? Their scores stop counting: every team is then judged by the other ${judges.length - 1} judges, and the lock and ties no longer wait for ${judge.name}. You can bring them back later.`)) {
+                        void act(() => api.setJudgeAbsent(judge.id, true))
+                      }
+                    }}>Mark absent</button>
                   </li>
                 )
               })}
             </ul>
+            {(state.absentJudges ?? []).length > 0 && (
+              <>
+                <p className="banner">
+                  Absent: {state.absentJudges!.map((j) => j.name).join(', ')}. Their scores do not count; every team is judged by the {judges.length} judges above.
+                </p>
+                <ul className="board-judges">
+                  {state.absentJudges!.map((judge) => (
+                    <li key={judge.id}>
+                      <JudgeAvatar judge={judge} />
+                      <span className="team-name"><strong>Judge {judge.group} · {judge.name}</strong><span className="muted small">Absent · scores not counted</span></span>
+                      <button className="secondary" disabled={state.locked} onClick={() => void act(() => api.setJudgeAbsent(judge.id, false))}>Back on panel</button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </section>
 
           {CATEGORIES.map((c) => {
@@ -268,8 +289,8 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
                             <td><strong>{t.appName}</strong> <span className="muted small">{t.university}</span></td>
                             {judges.map((j) => {
                               const r = sheetOf(j.id, t.id)
-                              // A draft shows what the judge has picked so far: its score once all 9 are in, else how many.
-                              const label = !r ? '–' : isComplete(r.sheet) ? String(finalScore(r.sheet)) : `${Object.keys(r.sheet).length}/9`
+                              // A draft shows what the judge has picked so far: its score once all criteria are in, else how many.
+                              const label = !r ? '–' : isComplete(r.sheet) ? String(finalScore(r.sheet)) : `${CRITERIA.filter((k) => r.sheet[k] !== undefined).length}/${CRITERIA.length}`
                               return (
                                 <td key={j.id} className="num">
                                   <button className={`cell ${!r ? 'empty' : r.status}`} title={!r ? `Enter ${j.name}'s paper sheet` : r.status === 'submitted' ? `Correct ${j.name}'s score` : `${j.name} is still scoring (draft, not submitted)`}
@@ -289,16 +310,16 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
           })}
         </>
       )}
-      <ResetCard scores={records.length} onReset={() => act(async () => {
-        const r = await api.resetEventData()
-        window.alert(`Reset done: ${r.scores} score sheets removed. Tablets clear their copies on their next sync.`)
+      <ResetCard scores={records.length} locked={!!state?.locked} onReset={(phrase) => act(async () => {
+        const r = await api.resetEventData(phrase)
+        window.alert(`Reset done: ${r.scores} score sheets removed (a copy is archived on the server). Tablets clear their copies on their next sync.`)
       })} />
       <section className="card">
         <h2>Change log</h2>
         {audit.length === 0 ? <p className="muted small">No changes yet.</p> : (
           <ul className="audit">
             {[...audit].reverse().map((a, i) => (
-              <li key={i}><time>{new Date(a.at).toLocaleTimeString()}</time>{describe(a, judges)}</li>
+              <li key={i}><time>{new Date(a.at).toLocaleTimeString()}</time>{describe(a, [...judges, ...(state?.absentJudges ?? [])])}</li>
             ))}
           </ul>
         )}
@@ -307,8 +328,12 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
   )
 }
 
-/** Wipe the rehearsal (UAT) data. Typing RESET is the guard against a mis-tap on the day. */
-function ResetCard({ scores, onReset }: { scores: number; onReset: () => Promise<void> }) {
+/**
+ * Wipe the rehearsal (UAT) data. Typing RESET is the guard against a mis-tap on the day;
+ * once the result is locked it takes a longer phrase.
+ */
+function ResetCard({ scores, locked, onReset }: { scores: number; locked: boolean; onReset: (phrase: string) => Promise<void> }) {
+  const phrase = locked ? 'RESET LOCKED RESULT' : 'RESET'
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   return (
@@ -319,12 +344,13 @@ function ResetCard({ scores, onReset }: { scores: number; onReset: () => Promise
         deliberation and the change log, on the server and on every tablet. Judges, their names and all PINs stay.
         Never use this during the Grand Final.
       </p>
+      {locked && <p className="banner">The result is locked. Resetting deletes the Grand Final result too.</p>}
       <div className="row reset-row">
-        <input type="text" placeholder="Type RESET" value={text} onChange={(e) => setText(e.target.value)} aria-label="Type RESET to confirm" />
-        <button className="secondary danger" disabled={text !== 'RESET' || busy} onClick={() => {
-          if (!window.confirm('Delete all event data now? This cannot be undone.')) return
+        <input type="text" placeholder={`Type ${phrase}`} value={text} onChange={(e) => setText(e.target.value)} aria-label={`Type ${phrase} to confirm`} />
+        <button className="secondary danger" disabled={text !== phrase || busy} onClick={() => {
+          if (!window.confirm('Delete all event data now? A copy is kept on the server, but tablets lose sheets they have not sent yet.')) return
           setBusy(true)
-          void onReset().finally(() => {
+          void onReset(phrase).finally(() => {
             setBusy(false)
             setText('')
           })
@@ -355,6 +381,8 @@ function describe(a: AuditEntry, judges: Judge[]): string {
     case 'set_order': return 'Changed the running order'
     case 'now_presenting': return d.teamId ? `On stage: ${team}` : 'Stage cleared'
     case 'start_timer': return `Timer started for ${team}`
+    case 'judge_absent': return `${judge} marked absent: scores not counted`
+    case 'judge_back': return `${judge} back on the panel`
     case 'reset': return `Event data reset (${d.scores} score sheets removed)`
     case 'tie_pick': return `Tie in ${CATEGORIES.find((c) => c.id === d.category)?.name ?? d.category}: ${a.actor === 'admin' ? 'operator recorded' : `${judges.find((j) => j.id === a.actor)?.name ?? a.actor} chose`} ${team}`
     default: return a.action

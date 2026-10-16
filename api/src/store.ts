@@ -53,6 +53,13 @@ export interface Store {
   getTieBreaks(): Promise<TieBreaks>
   putTieBreak(category: CategoryId, pick: TieBreak): Promise<void>
 
+  /** Judges the operator marked absent: their sheets leave the averages, the lock and the ties. */
+  getAbsent(): Promise<string[]>
+  setAbsent(judgeId: string, absent: boolean): Promise<void>
+
+  /** Keep a copy of the event data before a reset, so a mistaken reset can be recovered. */
+  archive(epoch: string, snapshot: Record<string, unknown>): Promise<void>
+
   touchPresence(judgeId: string, at: string): Promise<void>
   getPresence(): Promise<Record<string, string>>
 
@@ -62,7 +69,7 @@ export interface Store {
   /** Id of the current event data; changes on every reset so tablets drop their local copies. */
   getEpoch(): Promise<string | null>
   /**
-   * Delete every score, tie pick, closed category, presence, audit entry, the running
+   * Delete every score, tie pick, closed category, absent mark, presence, audit entry, the running
    * order and the deliberation, and set a new epoch. Judges, names and PINs stay.
    */
   resetEventData(epoch: string): Promise<void>
@@ -77,6 +84,8 @@ export function memoryStore(): Store {
   let runOrder: RunOrder | undefined
   let ties: TieBreaks = {}
   let presence: Record<string, string> = {}
+  const absent = new Set<string>()
+  const archives = new Map<string, Record<string, unknown>>()
   const audit: AuditEntry[] = []
   let epoch: string | null = null
   const clone = <T>(x: T): T => structuredClone(x)
@@ -96,6 +105,9 @@ export function memoryStore(): Store {
     putRunOrder: async (r) => void (runOrder = clone(r)),
     getTieBreaks: async () => clone(ties),
     putTieBreak: async (c, p) => void (ties[c] = clone(p)),
+    getAbsent: async () => [...absent].sort(),
+    setAbsent: async (j, a) => void (a ? absent.add(j) : absent.delete(j)),
+    archive: async (e, snap) => void archives.set(e, clone(snap)),
     touchPresence: async (j, at) => void (presence[j] = at),
     getPresence: async () => ({ ...presence }),
     appendAudit: async (e) => void audit.push(clone(e)),
@@ -104,6 +116,7 @@ export function memoryStore(): Store {
     resetEventData: async (e) => {
       scores.clear()
       closed.clear()
+      absent.clear()
       deliberation = undefined
       runOrder = undefined
       ties = {}

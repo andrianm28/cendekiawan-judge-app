@@ -26,6 +26,10 @@ export const WEIGHTS: Record<CriterionKey, number> = { d1: 100, d2: 125, d3: 100
 /** All levels at 4 give 4 × Σ WEIGHTS = 3700 = 100 × FINAL_SCALE. */
 export const FINAL_SCALE = 37
 
+/** The sheet with only the current rubric's criteria (a sheet saved before 16 Oct may hold V3). */
+export const currentCriteria = (sheet: PartialSheet): PartialSheet =>
+  Object.fromEntries(Object.entries(sheet).filter(([k]) => (CRITERIA as readonly string[]).includes(k)))
+
 export function isComplete(sheet: PartialSheet): sheet is ScoreSheet {
   return CRITERIA.every((k) => sheet[k] !== undefined)
 }

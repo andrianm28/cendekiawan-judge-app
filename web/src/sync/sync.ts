@@ -2,6 +2,7 @@
 // server's view (closed groups, operator corrections). Taps are always saved on the
 // tablet first, so a failed round just leaves records waiting for the next one.
 
+import { currentCriteria } from '../domain/scoring'
 import { CATEGORIES, categoryOf, TEAMS } from '../domain/teams'
 import type { RunOrder } from '../domain/runOrder'
 import type { TieSummary } from '../domain/ties'
@@ -22,6 +23,10 @@ export interface SyncResult {
   ties?: TieSummary[]
   /** The operator reset the event data and this tablet dropped its local records. */
   reset?: boolean
+  /** The operator marked this judge absent: their scores no longer count. */
+  absent?: boolean
+  /** Sheets the server refused as invalid; they stay on the tablet and the rest keep syncing. */
+  rejected?: number
   error?: string
 }
 
@@ -40,12 +45,20 @@ export async function syncJudge(api: Api, store: ScoreStore, judgeId: string): P
 
     // A locked result freezes every category, so the tablet treats them all as closed.
     closedGroups = state.locked ? CATEGORIES.map((c) => c.group) : state.closedGroups
+    let rejected = 0
     for (const r of (await store.listForJudge(judgeId)).filter((x) => !x.synced)) {
       try {
-        await api.saveScore(r)
+        // A sheet saved under an older rubric may still hold a dropped criterion (V3).
+        await api.saveScore({ ...r, sheet: currentCriteria(r.sheet) })
         await store.markSynced(judgeId, r.teamId, r.version)
       } catch (e) {
         if (!(e instanceof ApiError)) throw e
+        // 400/404: the server will never take this sheet. Keep it on the tablet, counted as
+        // waiting, and go on with the others instead of stalling every sheet behind it.
+        if (e.status === 400 || e.status === 404) {
+          rejected++
+          continue
+        }
         // 409: the server holds a newer copy; 423: category closed, or the sheet was
         // submitted and the deliberation is not open. Either way the server copy wins
         // (here, or below for a closed category).
@@ -66,7 +79,7 @@ export async function syncJudge(api: Api, store: ScoreStore, judgeId: string): P
     const waiting = (await store.listForJudge(judgeId)).filter((x) => !x.synced).length
     return {
       online: true, waiting, closedGroups, judge, replaced: [...new Set(replaced)], reset,
-      runOrder: state.runOrder, clockOffset, ties: state.ties,
+      runOrder: state.runOrder, clockOffset, ties: state.ties, absent: state.absent === true, rejected,
     }
   } catch (e) {
     const waiting = (await store.listForJudge(judgeId)).filter((x) => !x.synced).length

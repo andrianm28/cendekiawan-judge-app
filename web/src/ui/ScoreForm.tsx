@@ -29,9 +29,11 @@ interface Props {
   submittedFrozen?: boolean
   /** The next team is already on stage; its sheet opens once this one is submitted. */
   nextUp?: string
+  /** Why the sheet is locked, when it is not a closed category. */
+  lockedReason?: string
 }
 
-export function ScoreForm({ team, record, locked, onChange, onBack, footer, timer, onStage, judge, submittedFrozen = false, nextUp }: Props) {
+export function ScoreForm({ team, record, locked, onChange, onBack, footer, timer, onStage, judge, submittedFrozen = false, nextUp, lockedReason }: Props) {
   const sheet = record?.sheet ?? {}
   const complete = isComplete(sheet)
   const submitted = record?.status === 'submitted'
@@ -55,7 +57,7 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer, time
       </Header>
 
       {judge && <JudgeBadge judge={judge} compact />}
-      {locked && <p className="banner">This category is closed. Ask the operator to change a score.</p>}
+      {locked && <p className="banner">{lockedReason ?? 'This category is closed. Ask the operator to change a score.'}</p>}
 
       <p className="muted small rubric-hint">Score what you see and hear in the whole 5 minutes, pitch and video; only what is shown or said counts. Give the highest level whose whole description is met; if only part of a level is met, give the level below. Give 1 or 4 only when you can point to what earns it.</p>
 
