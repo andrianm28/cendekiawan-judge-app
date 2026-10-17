@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { DEFAULT_RUN_ORDER } from '../domain/runOrder'
+import { DEFAULT_RUN_ORDER, timerClock } from '../domain/runOrder'
 import { categoryOf, TEAMS, type Team } from '../domain/teams'
 import type { Api, Session } from '../sync/api'
 import { syncJudge, type SyncResult } from '../sync/sync'
@@ -19,6 +19,8 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
   const { records, save, refresh } = useScores()
   const [team, setTeam] = useState<Team | null>(null)
   const [tie, setTie] = useState(false)
+  /** Team put on stage while the judge still had the previous team's sheet unsubmitted. */
+  const [waitingNext, setWaitingNext] = useState<string | null>(null)
   const [sync, setSync] = useState<SyncResult | null>(null)
   const [epoch, setEpoch] = useState(0)
   const running = useRef(false)
@@ -52,17 +54,32 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
   }, [round])
 
   const runOrder = sync?.runOrder ?? DEFAULT_RUN_ORDER
-  // A new team on stage opens its sheet, whatever the judge was looking at.
+  const submittedHere = (teamId: string) =>
+    records.some((r) => r.teamId === teamId && r.judgeId === judge.id && r.status === 'submitted')
+  // A new team on stage opens its sheet, whatever the judge was looking at, except that
+  // an unsubmitted sheet of the team that just pitched stays open until it is submitted.
   useEffect(() => {
     if (!sync?.runOrder) return
     const current = sync.runOrder.current
     if (current === lastCurrent.current) return
+    const previous = lastCurrent.current
     lastCurrent.current = current
-    if (current) {
-      setTie(false)
-      setTeam(TEAMS.find((t) => t.id === current) ?? null)
+    if (!current) return
+    setTie(false)
+    if (team && team.id !== current && (team.id === previous || waitingNext) && !submittedHere(team.id)) {
+      setWaitingNext(current)
+      return
     }
-  }, [sync?.runOrder])
+    setWaitingNext(null)
+    setTeam(TEAMS.find((t) => t.id === current) ?? null)
+  }, [sync?.runOrder]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Once that sheet is submitted, open the team on stage now.
+  useEffect(() => {
+    if (!waitingNext || !team || !submittedHere(team.id)) return
+    const now = sync?.runOrder?.current ?? waitingNext
+    setWaitingNext(null)
+    setTeam(TEAMS.find((t) => t.id === now) ?? null)
+  }, [records, waitingNext]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const teams = runOrder.order.map((id) => TEAMS.find((t) => t.id === id)!).filter(Boolean)
   const closed = (t: Team) => sync?.closedGroups.includes(categoryOf(t.category).group) ?? false
@@ -86,7 +103,6 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
   }
   if (team) {
     const onStage = team.id === runOrder.current
-    const started = onStage && runOrder.startedAt ? Date.parse(runOrder.startedAt) - (sync?.clockOffset ?? 0) : null
     return (
       <ScoreForm
         key={`${team.id}-${epoch}`}
@@ -95,9 +111,11 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
         locked={closed(team)}
         onStage={onStage}
         judge={judge}
-        timerStartedAt={started}
+        timer={onStage ? timerClock(runOrder, sync?.clockOffset ?? 0) : null}
+        submittedFrozen={!runOrder.deliberation}
+        nextUp={waitingNext ? TEAMS.find((t) => t.id === waitingNext)?.appName : undefined}
         onChange={(change) => void save(judge.id, team.id, change).then(() => round())}
-        onBack={() => setTeam(null)}
+        onBack={() => { setWaitingNext(null); setTeam(null) }}
       />
     )
   }

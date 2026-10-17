@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { hashPin } from './auth'
 import { makeHandler } from './handler'
-import { ApiError, JudgingService } from './service'
+import { ApiError, CORRECTION_STEP, JudgingService } from './service'
 import { memoryStore } from './store'
 import { CATEGORIES, TEAMS } from '../../web/src/domain/teams'
 
@@ -60,6 +60,51 @@ describe('login', () => {
     expect((await call(handler, 'GET', '/state')).status).toBe(401)
     expect((await call(handler, 'GET', '/state', undefined, 'forged.token')).status).toBe(401)
   })
+
+  it('serves the stage screen without a login, with no judges or scores', async () => {
+    const { handler } = await setup()
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    await call(handler, 'PUT', '/admin/runorder', { current: 't01', timer: 'start' }, admin)
+    const r = await call(handler, 'GET', '/stage')
+    expect(r.status).toBe(200)
+    expect(r.body.runOrder).toMatchObject({ current: 't01' })
+    expect(r.body.runOrder.startedAt).toBeTruthy()
+    expect(Object.keys(r.body).sort()).toEqual(['runOrder', 'serverTime'])
+    expect(JSON.stringify(r.body)).not.toMatch(/judge|score|Yashinta/i)
+  })
+
+  it('keeps a login for days, so judges can try the app before the event', async () => {
+    const store = memoryStore()
+    await store.putJudges([{ id: 'g1', group: 1, name: 'Ms. Yashinta', pinHash: hashPin('1111') }])
+    let t = Date.parse('2026-10-15T09:00:00Z')
+    const service = new JudgingService(store, SECRET, () => new Date(t))
+    const handler = makeHandler(service, SECRET)
+    const token = (await call(handler, 'POST', '/login', { pin: '1111' })).body.token
+    t = Date.parse('2026-10-20T09:00:00Z')
+    const realNow = Date.now
+    Date.now = () => t
+    try {
+      expect((await call(handler, 'GET', '/state', undefined, token)).status).toBe(200)
+    } finally {
+      Date.now = realNow
+    }
+  })
+
+  it('logs a device out when its PIN is rotated, and only that device', async () => {
+    const { handler } = await setup()
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    const g1 = (await call(handler, 'POST', '/login', { pin: '1111' })).body.token
+    const g2 = (await call(handler, 'POST', '/login', { pin: '2222' })).body.token
+    await call(handler, 'PUT', '/admin/judges/g1', { name: 'Ms. Yashinta' }, admin)
+    expect((await call(handler, 'GET', '/state', undefined, g1)).status).toBe(200)
+
+    await call(handler, 'PUT', '/admin/judges/g1', { pin: '515151' }, admin)
+    expect((await call(handler, 'GET', '/state', undefined, g1)).body.code).toBe('unauthorized')
+    expect((await call(handler, 'PUT', '/scores/t01', { sheet: { d1: 3 }, note: '', status: 'draft', version: 1 }, g1)).status).toBe(401)
+    expect((await call(handler, 'GET', '/state', undefined, g2)).status).toBe(200)
+    const again = (await call(handler, 'POST', '/login', { pin: '515151' })).body.token
+    expect((await call(handler, 'GET', '/state', undefined, again)).status).toBe(200)
+  })
 })
 
 describe('saving scores', () => {
@@ -106,10 +151,28 @@ describe('saving scores', () => {
 
     expect((await call(handler, 'PUT', '/admin/scores/g1/t01', { sheet: { ...FULL, d5: 3 }, note: '', status: 'submitted', reason: '' }, admin)).status).toBe(400)
     const fixed = await call(handler, 'PUT', '/admin/scores/g1/t01', { sheet: { ...FULL, d5: 3 }, note: '', status: 'submitted', reason: 'Judge asked to fix D5' }, admin)
-    expect(fixed.body.version).toBe(2)
+    expect(fixed.body.version).toBe(1 + CORRECTION_STEP)
     const audit = (await call(handler, 'GET', '/admin/audit', undefined, admin)).body
     expect(audit.map((a: { action: string }) => a.action)).toEqual(['close_group', 'correct_score'])
     expect(audit[1].detail.reason).toBe('Judge asked to fix D5')
+  })
+
+  it('keeps an operator correction when a tablet comes back with taps it made offline before it', async () => {
+    const { handler } = await setup()
+    const g1 = (await call(handler, 'POST', '/login', { pin: '1111' })).body.token
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    await call(handler, 'PUT', '/scores/t01', { sheet: { d1: 2 }, note: '', status: 'draft', version: 3 }, g1)
+    // The tablet went dark; the operator keys the judge's paper sheet.
+    const paper = { sheet: { ...FULL, d1: 4 }, note: 'paper', status: 'submitted', reason: 'Tablet died, paper backup' }
+    expect((await call(handler, 'PUT', '/admin/scores/g1/t01', paper, admin)).status).toBe(200)
+    // The tablet revives with 20 more offline taps: stale, and it is handed the correction.
+    const late = await call(handler, 'PUT', '/scores/t01', { sheet: { ...FULL, d1: 1 }, note: '', status: 'submitted', version: 23 }, g1)
+    expect(late.status).toBe(409)
+    expect(late.body.current.sheet).toEqual(paper.sheet)
+    // In the judges' deliberation the judge can still change it, from the corrected copy.
+    await call(handler, 'PUT', '/admin/runorder', { deliberation: true }, admin)
+    const next = await call(handler, 'PUT', '/scores/t01', { sheet: { ...FULL, d1: 3 }, note: 'paper', status: 'submitted', version: late.body.current.version + 1 }, g1)
+    expect(next.status).toBe(200)
   })
 
   it('freezes every score once the result is locked, for judges and the operator', async () => {
@@ -134,8 +197,8 @@ describe('running order and pitch timer', () => {
     const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
     expect((await call(handler, 'PUT', '/admin/runorder', { current: 't01' }, g1)).status).toBe(403)
 
-    const set = await call(handler, 'PUT', '/admin/runorder', { order: ['t05', 't01'], current: 't05', timer: 'start' }, admin)
-    expect(set.body.order.slice(0, 3)).toEqual(['t05', 't01', 't02'])
+    const set = await call(handler, 'PUT', '/admin/runorder', { order: ['t02', 't01'], current: 't02', timer: 'start' }, admin)
+    expect(set.body.order.slice(0, 3)).toEqual(['t02', 't01', 't03'])
     expect(set.body.startedAt).toBeTruthy()
     const seen = (await call(handler, 'GET', '/state', undefined, g1)).body
     expect(seen.runOrder).toEqual(set.body)
@@ -146,6 +209,70 @@ describe('running order and pitch timer', () => {
     expect(next.body.startedAt).toBeNull()
     const audit = (await call(handler, 'GET', '/admin/audit', undefined, admin)).body
     expect(audit.map((a: { action: string }) => a.action)).toEqual(['set_order', 'now_presenting', 'start_timer', 'now_presenting'])
+  })
+
+  it('moves teams only inside their category', async () => {
+    const { handler } = await setup()
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    const across = await call(handler, 'PUT', '/admin/runorder', { order: ['t05', 't01'] }, admin)
+    expect(across.status).toBe(400)
+    expect(across.body.code).toBe('bad_order')
+    expect((await call(handler, 'PUT', '/admin/runorder', { order: ['t04', 't03', 't02', 't01'] }, admin)).status).toBe(200)
+  })
+
+  it('never goes back to a category that has already presented', async () => {
+    const { handler } = await setup()
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    const go = (current: string | null) => call(handler, 'PUT', '/admin/runorder', { current }, admin)
+    expect((await go('t03')).status).toBe(200)
+    expect((await go('t01')).status).toBe(200) // back inside the same category is fine
+    expect((await go('t05')).body.reached).toBe(1)
+    const back = await go('t04')
+    expect(back.status).toBe(409)
+    expect(back.body.code).toBe('no_going_back')
+    expect((await go(null)).status).toBe(200) // finishing is fine
+    expect((await go('t02')).status).toBe(409) // and still no way back afterwards
+    expect((await go('t06')).status).toBe(200)
+  })
+
+  it('pauses the pitch timer between the deck and the video', async () => {
+    const { handler } = await setup()
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    const put = async (body: object) => (await call(handler, 'PUT', '/admin/runorder', body, admin)).body
+    const started = await put({ current: 't01', timer: 'start' })
+    const paused = await put({ timer: 'pause' })
+    expect(paused.pausedAt).toBeTruthy()
+    expect(paused.startedAt).toBe(started.startedAt)
+    const resumed = await put({ timer: 'resume' })
+    expect(resumed.pausedAt).toBeNull()
+    expect(resumed.pausedMs).toBeGreaterThan(0)
+    expect((await put({ current: 't02' }))).toMatchObject({ startedAt: null, pausedAt: null, pausedMs: 0 })
+  })
+})
+
+describe('submitted scores', () => {
+  it('are locked until the operator opens the judges\' deliberation, then must be submitted again', async () => {
+    const { handler } = await setup()
+    const g1 = (await call(handler, 'POST', '/login', { pin: '1111' })).body.token
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    const save = (body: object, version: number) => call(handler, 'PUT', '/scores/t01', { sheet: FULL, note: '', status: 'submitted', ...body, version }, g1)
+    expect((await save({ status: 'draft', sheet: { d1: 2 } }, 1)).status).toBe(200)
+    expect((await save({ sheet: { d1: 2 }, status: 'draft' }, 2)).status).toBe(200) // drafts change freely
+    expect((await save({}, 3)).status).toBe(200)
+    const late = await save({ sheet: { ...FULL, d1: 1 }, status: 'draft' }, 4)
+    expect(late.status).toBe(423)
+    expect(late.body.code).toBe('submitted')
+    expect(late.body.current.sheet).toEqual(FULL)
+
+    await call(handler, 'PUT', '/admin/runorder', { deliberation: true }, admin)
+    expect((await call(handler, 'GET', '/state', undefined, g1)).body.runOrder.deliberation).toBe(true)
+    expect((await save({ sheet: { ...FULL, d1: 1 }, status: 'draft' }, 4)).status).toBe(200)
+    expect((await save({ sheet: { ...FULL, d1: 1 } }, 5)).status).toBe(200)
+
+    await call(handler, 'PUT', '/admin/runorder', { deliberation: false }, admin)
+    expect((await save({ sheet: FULL, status: 'draft' }, 6)).status).toBe(423)
+    const audit = (await call(handler, 'GET', '/admin/audit', undefined, admin)).body.map((a: { action: string }) => a.action)
+    expect(audit).toEqual(['open_deliberation', 'close_deliberation'])
   })
 })
 
@@ -288,7 +415,7 @@ describe('admin', () => {
     const body = { sheet: FULL, note: 'from paper', status: 'submitted', reason: 'Tablet failed, paper backup' }
     const r = await call(handler, 'PUT', '/admin/scores/g2/t07', body, admin)
     expect(r.status).toBe(200)
-    expect(r.body).toMatchObject({ judgeId: 'g2', teamId: 't07', status: 'submitted', version: 1 })
+    expect(r.body).toMatchObject({ judgeId: 'g2', teamId: 't07', status: 'submitted', version: CORRECTION_STEP })
     expect((await call(handler, 'PUT', '/admin/scores/g9/t07', body, admin)).status).toBe(404)
     expect((await call(handler, 'PUT', '/admin/scores/g2/t99', body, admin)).status).toBe(404)
   })

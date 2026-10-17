@@ -44,14 +44,15 @@ export function TeamList({ judge, teams, records, onOpen, onLogout, current, sta
       <JudgeBadge judge={judge} />
       {notice}
       <ul className="teams">
-        {teams.map((t) => {
+        {teams.map((t, i) => {
           const r = records.find((x) => x.teamId === t.id && x.judgeId === judge.id)
           const status = !r ? 'Not started' : r.status === 'submitted' ? 'Submitted' : 'Draft'
           const live = t.id === current
           return (
             <li key={t.id}>
               <button className={live ? 'team live' : 'team'} onClick={() => onOpen(t)}>
-                <span className="order">{t.order}</span>
+                {/* Position in the running order, the same number the operator sees. */}
+                <span className="order">{i + 1}</span>
                 <span className="team-name">
                   <strong>{t.appName}</strong>
                   <span className="muted">

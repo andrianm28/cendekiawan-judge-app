@@ -31,11 +31,10 @@ function OnlineApp({ base }: { base: string }) {
     setSession(s)
   }
   const logout = () => login(null)
+  // The stage screen is public: the venue's LED operator opens the link, no PIN.
+  if (new URLSearchParams(window.location.search).get('screen') === 'stage') return <StageScreen api={api} />
   if (!session) return <Login api={api} onLogin={login} />
-  if (session.role === 'admin') {
-    if (new URLSearchParams(window.location.search).get('screen') === 'stage') return <StageScreen api={api} onLogout={logout} />
-    return <OperatorBoard api={api} onLogout={logout} />
-  }
+  if (session.role === 'admin') return <OperatorBoard api={api} onLogout={logout} />
   if (!session.confirmed) return <ConfirmJudge judge={session.judge!} onConfirm={() => login({ ...session, confirmed: true })} onLogout={logout} />
   return <JudgeApp api={api} session={session} onLogout={logout} />
 }

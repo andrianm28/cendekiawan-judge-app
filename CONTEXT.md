@@ -6,7 +6,7 @@
 - **Judge**: one of five, each on a tablet. Every judge scores all 20 teams; they only score, the operator runs the stage.
 - **Running order**: the order teams present in, set by the operator (default = showcase order). The operator puts one team **on stage** at a time and starts its 5-minute **pitch timer**; every judge's tablet opens that team's sheet and shows the same timer.
 - **Team**: a finalist; has a team name, an app name, a university (APU, MMU, Nilai, UM) and a showcase **order** (1–20).
-- **Score sheet**: one judge's levels (1–4) for a team on D1–D5 (**Solution**, C1) and V1–V4 (**Live Demo**, C2), plus an optional one-sentence note. Status **draft** or **submitted**.
+- **Score sheet**: one judge's levels (1–4) for a team on D1–D5 (**Solution**, C1) and V1–V4 (**Demo Video**, C2), plus an optional one-sentence note. Status **draft** or **submitted**.
 - **Final**: 0.5 × C1 + 0.5 × C2, 25–100, rounded half-up once. Always computed in integers (8 × Final). A team's final is the average of all judges' unrounded finals, rounded once.
 - **Category winner**: the highest final in a category. If the top finals are equal once every judge has scored the category, the judge who owns it picks the winner (**tie pick**); D1 and D4 are shown to help, not applied.
 - **Closed category**: the operator closes a category; no judge can change those 4 teams' sheets afterwards (operator corrections still allowed, with a reason).

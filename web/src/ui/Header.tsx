@@ -10,8 +10,8 @@ export function Header({ children, hero }: { children?: ReactNode; hero?: ReactN
       <div className="brand">
         <img src="/brand/cendekiawan-white.png" alt="AWS CendekiAwan" className="logo-cendekiawan" />
         <span className="partners">
-          <img src="/brand/elitery-white.png" alt="Elitery" className="logo-elitery" />
           <img src="/brand/aws-white.png" alt="AWS" className="logo-aws" />
+          <img src="/brand/elitery-white.png" alt="Elitery" className="logo-elitery" />
         </span>
       </div>
       {hero}

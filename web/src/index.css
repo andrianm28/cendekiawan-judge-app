@@ -175,6 +175,7 @@ th, td { text-align: left; padding: 10px 6px; border-top: 1px solid var(--border
 .timer.on { border-color: var(--green); }
 .timer.warn { background: var(--orange); color: var(--navy-900); border-color: var(--orange); }
 .timer.over { background: #c92a2a; border-color: #c92a2a; }
+.timer.paused { border-style: dashed; border-color: var(--orange); }
 
 /* Printable rubric card and paper backup sheets */
 .print-page { background: #fff; color: #000; padding: 16px; margin-bottom: 16px; border: 1px solid var(--border); border-radius: 8px; }
@@ -344,3 +345,7 @@ span.timer { display: inline-flex; align-items: center; }
 .drag-grip { touch-action: none; color: var(--muted); font-size: 1.2rem; line-height: 1; padding: 4px 2px; }
 .run-live-tag { color: var(--ok); font-weight: 700; padding: 0 12px; white-space: nowrap; }
 .run-list li.live .run-name::before { content: none; }
+.submit-status { font-weight: 600; }
+.submit-status.ok { color: var(--green); }
+.submit-status.wait { color: #b35c00; }
+.actions .next-up { max-width: 688px; margin: 0 auto 8px; text-align: left; }

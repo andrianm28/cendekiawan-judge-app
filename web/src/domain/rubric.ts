@@ -1,4 +1,4 @@
-// Live-demo rubric for the Grand Final: the ToT UM rubric with the same criteria,
+// Rubric for the Grand Final (pitch deck, then demo video): the ToT UM rubric with the same criteria,
 // weights and 1–4 scale, in plain words for executive judges who may not be technical.
 
 import type { CriterionKey, Level } from './scoring'
@@ -20,6 +20,8 @@ export const LEVEL_NAMES: Record<Level, string> = {
   4: 'Excellent',
 }
 
+// Shown in the order the deck runs: problem, idea, the app on AWS, real-life use, then the
+// pitch as a whole. Codes and weights are unchanged, so the order does not change any score.
 export const SOLUTION: Criterion[] = [
   {
     key: 'd1', code: 'D1', name: 'Real problem', weight: '20%',
@@ -32,16 +34,6 @@ export const SOLUTION: Criterion[] = [
     },
   },
   {
-    key: 'd2', code: 'D2', name: 'Works well', weight: '20%',
-    question: 'Does the app work live on AWS (with Amazon Bedrock) and make sense to use?',
-    levels: {
-      1: 'Did not work',
-      2: 'Worked, but with problems',
-      3: 'Worked smoothly from start to end',
-      4: 'Worked smoothly and felt like a finished product',
-    },
-  },
-  {
     key: 'd3', code: 'D3', name: 'Fresh idea', weight: '20%',
     question: 'How new or creative is the idea?',
     levels: {
@@ -49,6 +41,16 @@ export const SOLUTION: Criterion[] = [
       2: 'Common idea, done fine',
       3: 'Common idea used in a smart new way',
       4: 'Truly original; I have not seen this before',
+    },
+  },
+  {
+    key: 'd2', code: 'D2', name: 'Works well', weight: '20%',
+    question: 'Does the app work on AWS (with Amazon Bedrock) and make sense to use?',
+    levels: {
+      1: 'Did not work',
+      2: 'Worked, but with problems',
+      3: 'Worked smoothly from start to end',
+      4: 'Worked smoothly and felt like a finished product',
     },
   },
   {
@@ -76,7 +78,7 @@ export const SOLUTION: Criterion[] = [
 export const DEMO: Criterion[] = [
   {
     key: 'v1', code: 'V1', name: 'Impact shown', weight: '35%',
-    question: 'Did the demo show how it helps real people?',
+    question: 'Did the demo video show how it helps real people?',
     levels: {
       1: 'Only features, no real situation',
       2: 'Talked about a use, did not show it',

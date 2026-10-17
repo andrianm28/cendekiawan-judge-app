@@ -11,7 +11,12 @@ export interface Session {
   sub: string
   /** Expiry, seconds since epoch. */
   exp: number
+  /** Fingerprint of the PIN this session logged in with; a new PIN ends the session. */
+  key?: string
 }
+
+/** Fingerprint of a stored PIN hash: its salt, which every new PIN replaces. */
+export const pinKey = (stored: string) => stored.split(':')[0].slice(0, 16)
 
 export function hashPin(pin: string, salt = randomBytes(16).toString('hex')): string {
   return `${salt}:${scryptSync(pin, salt, 32).toString('hex')}`

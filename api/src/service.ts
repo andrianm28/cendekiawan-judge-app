@@ -3,11 +3,11 @@
 
 import type { Deliberation } from '../../web/src/domain/deliberation'
 import { CRITERIA, isComplete, type PartialSheet } from '../../web/src/domain/scoring'
-import { normalizeRunOrder, type RunOrder } from '../../web/src/domain/runOrder'
+import { canPutOnStage, normalizeRunOrder, sameCategoryLayout, type RunOrder } from '../../web/src/domain/runOrder'
 import { CATEGORIES, categoryOf, TEAMS, type CategoryId } from '../../web/src/domain/teams'
 import { categoryTies, submittedSheets } from '../../web/src/domain/ties'
 import { proposeRanks, rankCategory } from '../../web/src/domain/ranking'
-import { hashPin, signToken, verifyPin, type Session } from './auth'
+import { hashPin, pinKey, signToken, verifyPin, type Session } from './auth'
 import type { Store, StoredScore } from './store'
 
 export class ApiError extends Error {
@@ -22,7 +22,18 @@ export class ApiError extends Error {
   }
 }
 
-const SESSION_HOURS = 12
+/**
+ * A login does not run out before the event, so judges can try the app days ahead.
+ * It ends when the operator gives that judge (or the operator) a new PIN.
+ */
+const SESSION_DAYS = 365
+
+/**
+ * An operator correction jumps the sheet's version this far ahead, so taps a tablet
+ * made offline before it (a sheet holds a few dozen taps at most) arrive as stale and
+ * the tablet takes the correction instead of silently overwriting it.
+ */
+export const CORRECTION_STEP = 1000
 
 export interface ScoreInput {
   sheet: PartialSheet
@@ -45,22 +56,42 @@ export class JudgingService {
 
   async login(pin: string) {
     if (!/^\d{4,8}$/.test(pin)) throw new ApiError(401, 'bad_pin', 'Wrong PIN')
-    const exp = Math.floor(this.now().getTime() / 1000) + SESSION_HOURS * 3600
+    const exp = Math.floor(this.now().getTime() / 1000) + SESSION_DAYS * 86400
     const admin = await this.store.getAdminPinHash()
     if (admin && verifyPin(pin, admin)) {
-      return { token: signToken({ role: 'admin', sub: 'admin', exp }, this.secret), role: 'admin' as const }
+      return { token: signToken({ role: 'admin', sub: 'admin', exp, key: pinKey(admin) }, this.secret), role: 'admin' as const }
     }
     for (const j of await this.store.getJudges()) {
       if (verifyPin(pin, j.pinHash)) {
         await this.store.touchPresence(j.id, this.now().toISOString())
         return {
-          token: signToken({ role: 'judge', sub: j.id, exp }, this.secret),
+          token: signToken({ role: 'judge', sub: j.id, exp, key: pinKey(j.pinHash) }, this.secret),
           role: 'judge' as const,
           judge: { id: j.id, group: j.group, name: j.name, title: j.title ?? '' },
         }
       }
     }
     throw new ApiError(401, 'bad_pin', 'Wrong PIN')
+  }
+
+  /** The session's PIN is still the current one; a rotated PIN logs that device out. */
+  async checkSession(s: Session) {
+    const stored = s.role === 'admin'
+      ? await this.store.getAdminPinHash()
+      : (await this.store.getJudges()).find((j) => j.id === s.sub)?.pinHash
+    if (!stored || !s.key || pinKey(stored) !== s.key) throw new ApiError(401, 'unauthorized', 'Please log in again')
+  }
+
+  /**
+   * The public stage screen (shown on the venue LED, no login): the running order and
+   * the pitch timer only. No judges, scores or ties.
+   */
+  async stage() {
+    const r = normalizeRunOrder(await this.store.getRunOrder())
+    return {
+      runOrder: { order: r.order, current: r.current, startedAt: r.startedAt, pausedAt: r.pausedAt, pausedMs: r.pausedMs },
+      serverTime: this.now().toISOString(),
+    }
   }
 
   /**
@@ -123,6 +154,10 @@ export class JudgingService {
     if (prev && input.version <= prev.version) {
       throw new ApiError(409, 'stale', 'A newer version is already saved', prev)
     }
+    // A submitted sheet is final until the judges' deliberation opens.
+    if (prev?.status === 'submitted' && !normalizeRunOrder(await this.store.getRunOrder()).deliberation) {
+      throw new ApiError(423, 'submitted', 'Submitted. Scores can be changed during the judges\' deliberation.', prev)
+    }
     const next: StoredScore = {
       judgeId: judge.id,
       teamId,
@@ -170,7 +205,7 @@ export class JudgingService {
     }
     // No sheet yet (a tablet failed before saving): the operator enters it from the paper backup.
     const prev = (await this.store.getScore(judgeId, teamId)) ?? { judgeId, teamId, sheet: {}, note: '', status: 'draft' as const, version: 0, updatedAt: '' }
-    const next: StoredScore = { ...prev, ...input, version: prev.version + 1, updatedAt: this.now().toISOString() }
+    const next: StoredScore = { ...prev, ...input, version: prev.version + CORRECTION_STEP, updatedAt: this.now().toISOString() }
     await this.store.putScore(next)
     await this.audit('correct_score', { judgeId, teamId, reason: reason.trim(), before: prev, after: next })
     return next
@@ -245,20 +280,36 @@ export class JudgingService {
   }
 
   /**
-   * The operator sets the running order, the team on stage and the pitch timer.
-   * `timer: 'start'` stamps the server time, so every tablet counts from the same moment.
+   * The operator sets the running order, the team on stage, the pitch timer and whether
+   * the judges' deliberation is open. `timer: 'start'` stamps the server time, so every
+   * tablet counts from the same moment; 'pause' and 'resume' hold it between the deck
+   * and the video. Teams only move inside their category, and the show never goes back
+   * to a category it has left.
    */
-  async putRunOrder(s: Session, body: { order?: string[]; current?: string | null; timer?: 'start' | 'reset' }) {
+  async putRunOrder(s: Session, body: { order?: string[]; current?: string | null; timer?: 'start' | 'reset' | 'pause' | 'resume'; deliberation?: boolean }) {
     requireAdmin(s)
     const prev = normalizeRunOrder(await this.store.getRunOrder())
-    const next: RunOrder = normalizeRunOrder({ order: body.order ?? prev.order, current: body.current === undefined ? prev.current : body.current })
-    next.startedAt = next.current !== prev.current ? null : prev.startedAt
-    if (body.timer === 'start' && next.current) next.startedAt = this.now().toISOString()
-    if (body.timer === 'reset') next.startedAt = null
+    const order = body.order === undefined ? prev.order : normalizeRunOrder({ order: body.order }).order
+    if (!sameCategoryLayout(order, prev.order)) throw new ApiError(400, 'bad_order', 'Teams can only move inside their own category')
+    const current = body.current === undefined ? prev.current : body.current
+    if (current && current !== prev.current && !canPutOnStage({ ...prev, order }, current)) {
+      throw new ApiError(409, 'no_going_back', 'That category has already presented; the show cannot go back to it')
+    }
+    const next: RunOrder = normalizeRunOrder({ ...prev, order, current, deliberation: body.deliberation ?? prev.deliberation })
+    const now = this.now()
+    if (next.current !== prev.current) Object.assign(next, { startedAt: null, pausedAt: null, pausedMs: 0 })
+    if (body.timer === 'start' && next.current) Object.assign(next, { startedAt: now.toISOString(), pausedAt: null, pausedMs: 0 })
+    if (body.timer === 'reset') Object.assign(next, { startedAt: null, pausedAt: null, pausedMs: 0 })
+    if (body.timer === 'pause' && next.startedAt && !next.pausedAt) next.pausedAt = now.toISOString()
+    if (body.timer === 'resume' && next.pausedAt) {
+      next.pausedMs = (next.pausedMs ?? 0) + Math.max(0, now.getTime() - Date.parse(next.pausedAt))
+      next.pausedAt = null
+    }
     await this.store.putRunOrder(next)
     if (next.order.join() !== prev.order.join()) await this.audit('set_order', { order: next.order })
     if (next.current !== prev.current) await this.audit('now_presenting', { teamId: next.current })
     if (next.startedAt && next.startedAt !== prev.startedAt) await this.audit('start_timer', { teamId: next.current })
+    if (next.deliberation !== prev.deliberation) await this.audit(next.deliberation ? 'open_deliberation' : 'close_deliberation', {})
     return next
   }
 
