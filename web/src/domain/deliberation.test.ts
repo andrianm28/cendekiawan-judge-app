@@ -84,4 +84,18 @@ describe('deliberation', () => {
     expect(r.stale).toBe(true)
     expect(r.ranks.map((x) => x.winner.team.id)).toEqual(late.map((x) => x.winner.team.id))
   })
+
+  it('drops a saved swap once a later score gives the two winners different averages, so Lock is not stuck', () => {
+    const tied = sheet([3, 3, 3, 3, 3], [3, 3, 3, 3])
+    const ranks = applyOrder(proposal({ t01: tied, t13: tied }), EMPTY_DELIBERATION).ranks
+    const a = ranks.findIndex((r) => r.winner.team.id === 't01') + 1
+    const b = ranks.findIndex((r) => r.winner.team.id === 't13') + 1
+    const swapped = moveRank(ranks, EMPTY_DELIBERATION, Math.max(a, b), Math.min(a, b), 'stronger demo', now)
+    expect(swapped.order.indexOf('t13')).toBeLessThan(swapped.order.indexOf('t01'))
+    // A judge then raises t01, which the swap moved down: the saved order would put the lower average first.
+    const after = proposal({ t01: sheet([4, 3, 3, 3, 3], [3, 3, 3, 3]), t13: tied })
+    const raised = applyOrder(after, swapped)
+    expect(raised.stale).toBe(true)
+    expect(keepsScoreOrder(after, raised.ranks.map((r) => r.winner.team.id))).toBe(true)
+  })
 })

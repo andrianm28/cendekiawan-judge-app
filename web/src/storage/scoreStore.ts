@@ -3,7 +3,7 @@
 
 import { openDB, type IDBPDatabase } from 'idb'
 import { EMPTY_DELIBERATION, type Deliberation } from '../domain/deliberation'
-import type { PartialSheet } from '../domain/scoring'
+import { currentCriteria, type PartialSheet } from '../domain/scoring'
 import type { TieBreaks } from '../domain/ties'
 
 export type ScoreStatus = 'draft' | 'submitted'
@@ -20,6 +20,7 @@ export interface ScoreRecord {
 }
 
 const DB_NAME = 'cendekiawan-judge'
+
 const STORE = 'scores'
 const META = 'meta'
 
@@ -67,7 +68,7 @@ export class ScoreStore {
     const next: ScoreRecord = {
       teamId,
       judgeId,
-      sheet: { ...prev?.sheet, ...change.sheet },
+      sheet: currentCriteria({ ...prev?.sheet, ...change.sheet }),
       note: change.note ?? prev?.note ?? '',
       status: change.status ?? prev?.status ?? 'draft',
       version: (prev?.version ?? 0) + 1,

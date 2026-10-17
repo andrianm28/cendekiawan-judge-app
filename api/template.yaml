@@ -137,6 +137,8 @@ Resources:
           TargetOriginId: web
           ViewerProtocolPolicy: redirect-to-https
           CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # Managed-CachingOptimized
+          # HSTS, nosniff, X-Frame-Options SAMEORIGIN and a strict referrer: no other site can frame the operator board.
+          ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03 # Managed-SecurityHeadersPolicy
         CustomErrorResponses:
           - { ErrorCode: 403, ResponseCode: 200, ResponsePagePath: /index.html }
 

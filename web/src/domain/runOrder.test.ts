@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canPutOnStage, canStepBack, DEFAULT_RUN_ORDER, elapsedSeconds, moveInOrder, moveTo, normalizeRunOrder, sameCategoryLayout, stepCurrent, timerClock } from './runOrder'
+import { canPutOnStage, canStepBack, DEFAULT_RUN_ORDER, elapsedSeconds, moveInOrder, moveTo, normalizeRunOrder, sameCategoryLayout, showFinished, stepCurrent, timerClock } from './runOrder'
 
 describe('running order', () => {
   it('defaults to showcase order and repairs a partial or unknown list', () => {
@@ -49,5 +49,13 @@ describe('running order', () => {
     expect(elapsedSeconds(t, Date.parse('2026-10-20T02:10:00Z'))).toBe(90)
     expect(elapsedSeconds({ ...t, pausedAt: null }, Date.parse('2026-10-20T02:03:00Z'))).toBe(150)
     expect(timerClock(DEFAULT_RUN_ORDER)).toBeNull()
+  })
+
+  it('knows when every team has presented', () => {
+    let r = normalizeRunOrder(null)
+    expect(showFinished(r)).toBe(false)
+    r = normalizeRunOrder({ ...r, current: r.order[19] })
+    expect(showFinished(r)).toBe(false)
+    expect(showFinished(normalizeRunOrder({ ...r, current: null }))).toBe(true)
   })
 })

@@ -18,6 +18,8 @@ function fakeServer() {
   const api = {
     async saveScore(r: ServerScore) {
       if (!up) throw new TypeError('Failed to fetch')
+      if (Object.keys(r.sheet).some((k) => k === 'v3')) throw new ApiError(400, 'bad_score', 'Invalid score sheet')
+      if (r.teamId === 'nope') throw new ApiError(404, 'not_found', 'Unknown judge or team')
       if (closed.has(1) || lockedAt) throw new ApiError(423, closed.has(1) ? 'group_closed' : 'locked', 'closed')
       const cur = scores.get(r.teamId)
       if (cur && r.version <= cur.version) throw new ApiError(409, 'stale', 'stale', cur)
@@ -117,5 +119,20 @@ describe('syncJudge', () => {
     await store.save('g1', 't01', { sheet: { d1: 4 } })
     expect((await syncJudge(server.api, store, 'g1')).reset).toBe(false)
     expect(server.scores.get('t01')?.sheet).toEqual({ d1: 4 })
+  })
+
+  it('keeps syncing the other sheets when the server refuses one, and drops the old V3 criterion', async () => {
+    const srv = fakeServer()
+    const store = await fresh()
+    await store.save('g1', 'nope', { sheet: { d1: 3 } })
+    // A sheet from before the 8-criteria rubric, as a trial tablet may still hold it.
+    await store.save('g1', 't01', { sheet: { d1: 3, v3: 2 } as never })
+    await store.save('g1', 't02', { sheet: { d1: 4 } })
+    const r = await syncJudge(srv.api, store, 'g1')
+    expect(r.online).toBe(true)
+    expect(r.rejected).toBe(1)
+    expect(r.waiting).toBe(1)
+    expect([...srv.scores.keys()].sort()).toEqual(['t01', 't02'])
+    expect(srv.scores.get('t01')!.sheet).toEqual({ d1: 3 })
   })
 })

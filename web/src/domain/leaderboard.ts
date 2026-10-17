@@ -75,7 +75,11 @@ export function buildLeaderboard(
   const categoryRankOf = new Map<string, number>()
   for (const s of standings) s.ranked.forEach((r, i) => categoryRankOf.set(r.team.id, i + 1))
 
-  const sorted = standings.flatMap((s) => s.ranked).sort((a, b) => compareResults(a, b) || a.team.order - b.team.order)
+  // Among exactly equal averages the team its category judge picked comes first, as in its category.
+  const picked = new Set(standings.map((s) => s.pick).filter(Boolean))
+  const pickedFirst = (a: TeamResult, b: TeamResult) =>
+    sameFinal(a, b) ? Number(picked.has(b.team.id)) - Number(picked.has(a.team.id)) : 0
+  const sorted = standings.flatMap((s) => s.ranked).sort((a, b) => pickedFirst(a, b) || compareResults(a, b) || a.team.order - b.team.order)
   const rows: LeaderRow[] = []
   sorted.forEach((result, i) => {
     const tied = i > 0 && sameFinal(sorted[i - 1], result)

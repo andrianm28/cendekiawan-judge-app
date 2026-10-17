@@ -9,6 +9,7 @@ import { makeHandler } from '../../api/src/handler'
 import { hashPin } from '../../api/src/auth'
 import { JudgingService } from '../../api/src/service'
 import { memoryStore, type Store } from '../../api/src/store'
+import { CRITERIA } from '../src/domain/scoring'
 import { JUDGES } from '../src/judges'
 import { ScoreStore } from '../src/storage/scoreStore'
 import { Api } from '../src/sync/api'
@@ -140,4 +141,4 @@ export class Tablet {
 }
 
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-export const CRITS = ['d1', 'd2', 'd3', 'd4', 'd5', 'v1', 'v2', 'v3', 'v4'] as const
+export const CRITS = CRITERIA

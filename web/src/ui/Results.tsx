@@ -111,7 +111,7 @@ export function Results({ records, onBack, io = localDeliberation, judges = JUDG
       </Header>
 
       {!allIn && <p className="banner">Not all scores are in. Rankings below are provisional.</p>}
-      {stale && <p className="banner">A late score changed a category winner, so the saved order was reset to the proposal.</p>}
+      {stale && <p className="banner">A later score change means the saved order no longer fits the scores (a winner changed, or a tie broke), so the order follows the scores again.</p>}
 
       <section className="card">
         <h2>Rank 1–5 {locked && <span className="pill submitted">Locked</span>}</h2>
@@ -156,8 +156,9 @@ export function Results({ records, onBack, io = localDeliberation, judges = JUDG
           </div>
         )}
 
+        {delib.log.length > 0 && stale && <p className="muted small">Earlier changes below no longer apply.</p>}
         {delib.log.length > 0 && (
-          <ul className="log muted small">
+          <ul className={stale ? 'log muted small stale' : 'log muted small'}>
             {delib.log.map((c, i) => (
               <li key={i}>
                 {TEAMS.find((t) => t.id === c.teamId)?.appName}: Rank {c.from} → {c.to}. {c.reason}

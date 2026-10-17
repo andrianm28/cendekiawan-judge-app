@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { hashPin } from './auth'
 import { makeHandler } from './handler'
-import { ApiError, CORRECTION_STEP, JudgingService } from './service'
+import { ApiError, CORRECTION_STEP, JudgingService, LOGIN_MAX_FAILURES } from './service'
 import { memoryStore } from './store'
 import { CATEGORIES, TEAMS } from '../../web/src/domain/teams'
+import { proposeRanks, rankCategory } from '../../web/src/domain/ranking'
+import { submittedSheets } from '../../web/src/domain/ties'
 
 const SECRET = 'test-secret-test-secret-test-secret'
 const FULL = { d1: 3, d2: 3, d3: 3, d4: 4, d5: 2, v1: 4, v2: 3, v4: 2 } as const
@@ -423,5 +425,97 @@ describe('admin', () => {
   it('throws typed errors from the service', async () => {
     const { service } = await setup()
     await expect(service.login('abc')).rejects.toBeInstanceOf(ApiError)
+  })
+})
+
+describe('absent judge', () => {
+  async function three() {
+    const store = memoryStore()
+    await store.putAdminPinHash(hashPin('999999'))
+    await store.putJudges([1, 2, 3].map((g) => ({ id: `g${g}`, group: g, name: `Judge ${g}`, pinHash: hashPin(String(g).repeat(4)) })))
+    const service = new JudgingService(store, SECRET)
+    const handler = makeHandler(service, SECRET)
+    const tok = async (pin: string) => (await call(handler, 'POST', '/login', { pin })).body.token as string
+    return { store, handler, admin: await tok('999999'), judges: [await tok('1111'), await tok('2222'), await tok('3333')] }
+  }
+
+  it('leaves the panel: sheets stop counting, the lock and ties use the judges who are there', async () => {
+    const { handler, admin, judges } = await three()
+    // Judges 1 and 2 submit everything; judge 3 scores one team and leaves.
+    for (const t of TEAMS) for (const tok of judges.slice(0, 2)) await call(handler, 'PUT', `/scores/${t.id}`, { sheet: t.id === 't02' || t.order % 4 === 1 ? FULL : PLAIN, note: '', status: 'submitted', version: 1 }, tok)
+    await call(handler, 'PUT', '/scores/t01', { sheet: PLAIN, note: '', status: 'submitted', version: 1 }, judges[2])
+    const before = (await call(handler, 'GET', '/state', undefined, admin)).body
+    expect(before.ties).toEqual([])
+    expect((await call(handler, 'POST', '/admin/judges/g3/absent', { absent: true }, judges[0])).status).toBe(403)
+    expect((await call(handler, 'POST', '/admin/judges/g3/absent', { absent: true }, admin)).status).toBe(200)
+    const st = (await call(handler, 'GET', '/state', undefined, admin)).body
+    expect(st.judges.map((j: { id: string }) => j.id)).toEqual(['g1', 'g2'])
+    expect(st.absentJudges.map((j: { id: string }) => j.id)).toEqual(['g3'])
+    expect(st.scores.some((s: { judgeId: string }) => s.judgeId === 'g3')).toBe(false)
+    // t01 and t02 are now tied in education across the two judges who are there.
+    expect(st.ties.map((t: { category: string }) => t.category)).toEqual(['education'])
+    // The absent judge's tablet is told, and its saves are refused.
+    const mine = (await call(handler, 'GET', '/state', undefined, judges[2])).body
+    expect(mine.absent).toBe(true)
+    expect((await call(handler, 'PUT', '/scores/t02', { sheet: PLAIN, note: '', status: 'draft', version: 1 }, judges[2])).body.code).toBe('absent')
+    // The last two judges cannot both leave.
+    expect((await call(handler, 'POST', '/admin/judges/g2/absent', { absent: true }, admin)).body.code).toBe('panel_too_small')
+    // Back on the panel: their sheet counts again.
+    await call(handler, 'POST', '/admin/judges/g3/absent', { absent: false }, admin)
+    expect((await call(handler, 'GET', '/state', undefined, admin)).body.judges).toHaveLength(3)
+    const audit = (await call(handler, 'GET', '/admin/audit', undefined, admin)).body.map((a: { action: string }) => a.action)
+    expect(audit).toEqual(expect.arrayContaining(['judge_absent', 'judge_back']))
+  })
+})
+
+describe('guards found in the 16 Oct UAT', () => {
+  it('needs a longer phrase to reset a locked result, and archives the data first', async () => {
+    const { handler, store } = await setup()
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    await scoreEveryTeam(handler)
+    const sheets = submittedSheets(await store.listScores())
+    const order = proposeRanks(CATEGORIES.map((c) => rankCategory(c.id, TEAMS, sheets))).map((p) => p.winner.team.id)
+    const r = await call(handler, 'PUT', '/admin/deliberation', { order, log: [], lockedAt: '2026-10-20T10:00:00Z' }, admin)
+    expect(r.status).toBe(200)
+    expect((await call(handler, 'POST', '/admin/reset', { confirm: 'RESET' }, admin)).body.code).toBe('confirm_required')
+    const done = await call(handler, 'POST', '/admin/reset', { confirm: 'RESET LOCKED RESULT' }, admin)
+    expect(done.status).toBe(200)
+    expect(await store.listScores()).toEqual([])
+  })
+
+  it('refuses a rank change without a reason, and malformed bodies with 400', async () => {
+    const { handler } = await setup()
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    const r = await call(handler, 'PUT', '/admin/deliberation', { order: [], log: [{ at: 'x', teamId: 't01', from: 1, to: 2, reason: ' ' }], lockedAt: null }, admin)
+    expect(r.body.code).toBe('reason_required')
+    const judge = (await call(handler, 'POST', '/login', { pin: '1111' })).body.token
+    for (const body of [null, [], { sheet: null, note: '', status: 'draft', version: 1 }]) {
+      expect((await call(handler, 'PUT', '/scores/t01', body, judge)).status).toBe(400)
+    }
+    expect((await call(handler, 'POST', '/login', null)).status).toBe(400)
+  })
+})
+
+describe('PIN guessing', () => {
+  it('pauses judge logins after too many wrong PINs, keeps logged-in devices and the operator working, and reopens after the window', async () => {
+    const store = memoryStore()
+    await store.putJudges([{ id: 'g1', group: 1, name: 'J1', pinHash: hashPin('111111') }])
+    await store.putAdminPinHash(hashPin('87654321'))
+    let t = Date.parse('2026-10-20T01:00:00Z')
+    const service = new JudgingService(store, SECRET, () => new Date(t))
+    const handler = makeHandler(service, SECRET)
+    const tok = (await call(handler, 'POST', '/login', { pin: '111111' })).body.token
+    for (let i = 0; i < LOGIN_MAX_FAILURES; i++) expect((await call(handler, 'POST', '/login', { pin: String(200000 + i) })).status).toBe(401)
+    const blocked = await call(handler, 'POST', '/login', { pin: '111111' })
+    expect(blocked.status).toBe(429)
+    expect(blocked.body.code).toBe('too_many_tries')
+    expect((await call(handler, 'GET', '/state', undefined, tok)).status).toBe(200)
+    // The operator still gets in, and that lifts the pause for the judges.
+    expect((await call(handler, 'POST', '/login', { pin: '87654321' })).body.role).toBe('admin')
+    expect((await call(handler, 'POST', '/login', { pin: '111111' })).status).toBe(200)
+    for (let i = 0; i < LOGIN_MAX_FAILURES; i++) await call(handler, 'POST', '/login', { pin: String(300000 + i) })
+    expect((await call(handler, 'POST', '/login', { pin: '111111' })).status).toBe(429)
+    t += 16 * 60_000
+    expect((await call(handler, 'POST', '/login', { pin: '111111' })).status).toBe(200)
   })
 })
