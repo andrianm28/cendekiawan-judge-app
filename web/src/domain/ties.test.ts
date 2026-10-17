@@ -4,9 +4,9 @@ import { categoryTies, type SheetInput } from './ties'
 
 const sheet = (d: number[], v: number[]): ScoreSheet =>
   ({ d1: d[0], d2: d[1], d3: d[2], d4: d[3], d5: d[4], v1: v[0], v2: v[1], v3: v[2], v4: v[3] }) as ScoreSheet
-const A = sheet([4, 3, 3, 3, 2], [4, 3, 3, 2]) // 77
-const B = sheet([3, 3, 3, 4, 2], [4, 3, 3, 2]) // 77
-const LOW = sheet([3, 2, 2, 3, 2], [3, 2, 2, 2]) // 59
+const A = sheet([4, 3, 3, 3, 3], [4, 3, 3, 2]) // 80
+const B = sheet([3, 3, 3, 4, 3], [4, 3, 3, 2]) // 80
+const LOW = sheet([3, 2, 2, 3, 2], [3, 2, 2, 2]) // 60
 
 const health = (judges: string[], t05 = B): SheetInput[] =>
   judges.flatMap(() => [
@@ -21,7 +21,7 @@ describe('categoryTies', () => {
     expect(categoryTies(health(['g1']), 2, {})).toEqual([])
     const [t] = categoryTies(health(['g1', 'g2']), 2, {})
     expect(t.category).toBe('health')
-    expect(t.tied.map((x) => [x.teamId, x.final, x.d1])).toEqual([['t06', 77, 4], ['t05', 77, 3]])
+    expect(t.tied.map((x) => [x.teamId, x.final, x.d1])).toEqual([['t06', 80, 4], ['t05', 80, 3]])
     expect(t.pick).toBeNull()
   })
 

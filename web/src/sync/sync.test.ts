@@ -72,7 +72,7 @@ describe('syncJudge', () => {
     expect(r.replaced).toEqual(['t01'])
     expect((await store.get('g1', 't01'))?.sheet).toEqual({ d1: 4 })
     // the next tap continues from the server's version
-    expect((await store.save('g1', 't01', { sheet: { d2: 1 } })).version).toBe(3)
+    expect((await store.save('g1', 't01', { sheet: { d3: 1 } })).version).toBe(3)
   })
 
   it('drops unsent edits in a closed group in favour of the server copy', async () => {

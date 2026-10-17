@@ -1,9 +1,9 @@
-import { DEMO, LEVEL_NAMES, SOLUTION } from '../domain/rubric'
+import { ALL_CRITERIA, LEVEL_NAMES } from '../domain/rubric'
 import { CATEGORIES, categoryOf, TEAMS } from '../domain/teams'
 import type { Judge } from '../judges'
 import { Header } from './Header'
 
-const ALL = [...SOLUTION, ...DEMO]
+const ALL = ALL_CRITERIA
 
 /**
  * Paper backup for the day: a one-page rubric card for the judges' brief, and one
@@ -22,8 +22,8 @@ export function PrintSheets({ judges, order, onBack }: { judges: Judge[]; order?
       </div>
 
       <section className="print-page">
-        <Brand title="Judging rubric · Deck and demo video" />
-        <p className="small">Score each criterion 1 Poor · 2 Fair · 3 Good · 4 Excellent. Solution (D1–D5) and Demo Video (V1–V4) are 50% each. Most criteria land on 2 or 3; give 1 or 4 only when you can point to what earns it.</p>
+        <Brand title="Judging rubric · Pitch and demo video" />
+        <p className="small">One rubric for the whole 5 minutes, in the order the teams present: problem, solution, demo, impact, closing. Score each criterion 1 Poor · 2 Fair · 3 Good · 4 Excellent from what you see and hear in the pitch and the demo video; the weight is its share of the final. Only what is shown or said counts; normal video editing is fine. Give the highest level whose whole description is met; if only part of a level is met, give the level below. Give 1 or 4 only when you can point to what earns it. Any order of presenting is fine.</p>
         <table>
           <thead><tr><th>Criterion</th>{([1, 2, 3, 4] as const).map((l) => <th key={l}>{l} {LEVEL_NAMES[l]}</th>)}</tr></thead>
           <tbody>
@@ -87,8 +87,8 @@ function Brand({ title }: { title: string }) {
 function Formula() {
   return (
     <p className="small">
-      C1 = (D1+D2+D3+D4+D5) / 20 × 100 · C2 = (0.35 V1 + 0.25 V2 + 0.20 V3 + 0.20 V4) / 4 × 100 ·
-      Final = ½ C1 + ½ C2, rounded half up (69.5 → 70). Each team's final is the average of all judges. A tie at the top of a category is decided by that category's judge.
+      Final = (sum of level × weight) ÷ 4 × 100 (weights in ToT UM proportions), from 25 to 100,
+      rounded half up (69.5 → 70). Each team's final is the average of all judges. If the top unrounded averages in a category are exactly equal, that category's judge picks the winner.
     </p>
   )
 }

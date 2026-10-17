@@ -21,7 +21,7 @@ export function TiePick({ tie, onPick, onBack }: {
       </Header>
       <p className="banner">
         These teams have the same final score averaged across all judges. Choose the category winner.
-        D1 and D4 are shown to help; they do not decide.
+        Real problem and Usable in real life are shown to help; they do not decide.
       </p>
       {error && <p className="banner">{error}</p>}
       <ul className="teams">
@@ -33,7 +33,7 @@ export function TiePick({ tie, onPick, onBack }: {
                 <span className="order">{team.order}</span>
                 <span className="team-name">
                   <strong>{team.appName}</strong>
-                  <span className="muted small">{team.university} · C1 {t.c1} · C2 {t.c2} · D1 {t.d1} · D4 {t.d4}</span>
+                  <span className="muted small">{team.university} · Real problem {t.d1} · Usable {t.d4}</span>
                 </span>
                 <span className="score">{t.final}</span>
               </button>

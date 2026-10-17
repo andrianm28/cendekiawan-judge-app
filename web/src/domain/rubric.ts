@@ -1,5 +1,9 @@
-// Rubric for the Grand Final (pitch deck, then demo video): the ToT UM rubric with the same criteria,
-// weights and 1–4 scale, in plain words for executive judges who may not be technical.
+// Rubric for the Grand Final: one rubric for the whole 5-minute slot (pitch and hands-on demo video),
+// in the order of the five segments the teams were taught in the Showcase Prep workshop deck. The
+// wording is the ToT UM rubric's, in plain words for executive judges who may not be technical. Eight
+// criteria (ADR 0006, 0007); the weight shown is each criterion's share of the final, from WEIGHTS in
+// scoring.ts, rounded to one decimal. Codes are numbered 1–8 in the order judges see them; the keys
+// (d1…v4) stay the ToT ones so stored sheets and the maths keep their meaning.
 
 import type { CriterionKey, Level } from './scoring'
 
@@ -20,100 +24,120 @@ export const LEVEL_NAMES: Record<Level, string> = {
   4: 'Excellent',
 }
 
-// Shown in the order the deck runs: problem, idea, the app on AWS, real-life use, then the
-// pitch as a whole. Codes and weights are unchanged, so the order does not change any score.
-export const SOLUTION: Criterion[] = [
+export interface Segment {
+  title: string
+  /** When in the 5 minutes this segment runs, as taught in the workshop deck. */
+  time: string
+  criteria: Criterion[]
+}
+
+export const SEGMENTS: Segment[] = [
   {
-    key: 'd1', code: 'D1', name: 'Real problem', weight: '20%',
-    question: 'Does it solve a real problem for real people?',
-    levels: {
-      1: 'No clear problem',
-      2: 'A problem, but unclear who has it',
-      3: 'Clear problem and clear users',
-      4: 'Clear users, facts on how big the problem is, and why now',
-    },
+    title: 'Problem', time: '0:00–0:45',
+    criteria: [
+      {
+        key: 'd1', code: '1', name: 'Real problem', weight: '10.8%',
+        question: 'Is it a real problem for real people?',
+        levels: {
+          1: 'No problem stated, only the app',
+          2: 'A problem, but vague: unclear what it is or who has it',
+          3: 'Clear problem and clear users',
+          4: 'Clear problem and users, backed by evidence: a number, a real story, or what users said',
+        },
+      },
+    ],
   },
   {
-    key: 'd3', code: 'D3', name: 'Fresh idea', weight: '20%',
-    question: 'How new or creative is the idea?',
-    levels: {
-      1: 'A tutorial or template, barely changed',
-      2: 'Common idea, done fine',
-      3: 'Common idea used in a smart new way',
-      4: 'Truly original; I have not seen this before',
-    },
+    title: 'Solution', time: '0:45–1:30',
+    criteria: [
+      {
+        key: 'd3', code: '2', name: 'Fresh idea', weight: '10.8%',
+        question: 'Does it really need AI, and is it different from what people use today?',
+        levels: {
+          1: 'A generic chatbot or sample app; nothing specific to their user',
+          2: 'A common idea, done fine, but unclear why it needs AI',
+          3: "Clear why AI is needed for this user's problem (not just a form or a search)",
+          4: 'Clearly needs AI, and they say what people use today and what their app does that it cannot',
+        },
+      },
+      {
+        key: 'd2', code: '3', name: 'Built on AWS', weight: '13.5%',
+        question: 'How well does the app use AWS, with Amazon Bedrock at its core?',
+        levels: {
+          1: 'Amazon Bedrock not shown or explained',
+          2: 'Names AWS services, but unclear what each does',
+          3: 'Clear what Amazon Bedrock does in the app and how any other AWS services connect to it',
+          4: 'Clear how Amazon Bedrock and AWS fit, and they explain why this Bedrock model or how they keep its answers safe and correct',
+        },
+      },
+    ],
   },
   {
-    key: 'd2', code: 'D2', name: 'Works well', weight: '20%',
-    question: 'Does the app work on AWS (with Amazon Bedrock) and make sense to use?',
-    levels: {
-      1: 'Did not work',
-      2: 'Worked, but with problems',
-      3: 'Worked smoothly from start to end',
-      4: 'Worked smoothly and felt like a finished product',
-    },
+    title: 'Demo video', time: '1:30–3:30',
+    criteria: [
+      {
+        key: 'v2', code: '4', name: 'Easy to use', weight: '13.5%',
+        question: 'Could its intended user use it without help?',
+        levels: {
+          1: 'Could not tell how to use it',
+          2: 'Hard to follow; without the team talking I could not tell what to do on screen',
+          3: 'Easy to follow; each step is clear on screen',
+          4: 'Clear at a glance: few steps, nothing confusing',
+        },
+      },
+    ],
   },
   {
-    key: 'd4', code: 'D4', name: 'Usable in real life', weight: '20%',
-    question: 'Could people really use this outside the competition?',
-    levels: {
-      1: 'Only a school exercise',
-      2: 'Useful for a small group',
-      3: 'Ready for a real organisation or community',
-      4: 'Could grow to a whole sector or the country',
-    },
+    title: 'Real-world impact', time: '3:30–4:15',
+    criteria: [
+      {
+        key: 'v1', code: '5', name: 'Clear impact', weight: '18.9%',
+        question: 'Did they explain how it helps real people?',
+        levels: {
+          1: 'Only features, no real situation',
+          2: 'Mentioned a use, but vague',
+          3: "Described a specific user's situation (a persona is fine) and how the app helps them",
+          4: "A specific user's situation, plus how much it helps as a number (an estimate is fine: people helped, time or money saved)",
+        },
+      },
+      {
+        key: 'd4', code: '6', name: 'Usable in real life', weight: '10.8%',
+        question: 'Could a real organisation or community start using it?',
+        levels: {
+          1: 'Only a classroom demo; no real setting in mind',
+          2: 'Useful, but key parts are missing or only planned',
+          3: 'The main task works end to end in the video, and they say who would use it first (an organisation or community)',
+          4: 'Works end to end, and they name a real organisation that could pilot it (no agreement needed) and why it fits them',
+        },
+      },
+      {
+        key: 'v4', code: '7', name: 'Can grow', weight: '10.8%',
+        question: 'Could it serve many more people?',
+        levels: {
+          1: 'Not mentioned',
+          2: 'Said it can grow, with no reason (e.g. only "AWS scales")',
+          3: 'Named one of: who or where else could use it, how many users, or a rough cost',
+          4: 'A clear plan to grow, covering at least two of: who or where else, how many users, rough cost per user',
+        },
+      },
+    ],
   },
   {
-    key: 'd5', code: 'D5', name: 'Clear pitch', weight: '20%',
-    question: 'Did the team explain it clearly?',
-    levels: {
-      1: 'Hard to follow',
-      2: 'Said what it does, not why',
-      3: 'Clear problem, users and solution',
-      4: 'Clear and convincing, with facts or examples',
-    },
+    title: 'Closing', time: '4:15–5:00',
+    criteria: [
+      {
+        key: 'd5', code: '8', name: 'Clear pitch', weight: '10.8%',
+        question: 'Was the pitch clear and easy to follow?',
+        levels: {
+          1: 'Hard to follow',
+          2: 'Could follow, but jumped around or was cut off at 5:00',
+          3: 'Easy to follow from start to end, within 5 minutes (any order is fine)',
+          4: 'Easy to follow, within 5 minutes, and memorable: I could repeat their main point',
+        },
+      },
+    ],
   },
 ]
 
-export const DEMO: Criterion[] = [
-  {
-    key: 'v1', code: 'V1', name: 'Impact shown', weight: '35%',
-    question: 'Did the demo video show how it helps real people?',
-    levels: {
-      1: 'Only features, no real situation',
-      2: 'Talked about a use, did not show it',
-      3: 'Showed a real situation step by step',
-      4: 'Showed it, plus who benefits and how much',
-    },
-  },
-  {
-    key: 'v2', code: 'V2', name: 'Easy to use', weight: '25%',
-    question: 'Could a new user use it without help?',
-    levels: {
-      1: 'Could not tell how to use it',
-      2: 'Could follow it only because the presenter explained',
-      3: 'A new user could follow it',
-      4: 'So simple it needs no explaining',
-    },
-  },
-  {
-    key: 'v3', code: 'V3', name: 'Reliable', weight: '20%',
-    question: 'Did it work well each time they tried it?',
-    levels: {
-      1: 'Failed or gave no result',
-      2: 'Worked, but they only tried it once',
-      3: 'Tried with different inputs, all good answers',
-      4: 'Also handled a tricky or unusual input well',
-    },
-  },
-  {
-    key: 'v4', code: 'V4', name: 'Can grow', weight: '20%',
-    question: 'Could it serve many more people?',
-    levels: {
-      1: 'Not mentioned',
-      2: 'Said it can grow, no reason given',
-      3: 'Named who else would use it',
-      4: 'Clear plan to grow on AWS (cost, data, users)',
-    },
-  },
-]
+/** All eight criteria in the order judges see them. */
+export const ALL_CRITERIA: Criterion[] = SEGMENTS.flatMap((s) => s.criteria)

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { applyOrder, EMPTY_DELIBERATION, lock, moveRank, type Deliberation, type FinalRank } from '../domain/deliberation'
+import { applyOrder, canSwap, EMPTY_DELIBERATION, lock, moveRank, type Deliberation, type FinalRank } from '../domain/deliberation'
 import { resultsCsv, scoresCsv } from '../domain/exportCsv'
-import { announcementOrder, proposeRanks, rankCategory } from '../domain/ranking'
+import { announcementOrder, exactFinal, proposeRanks, rankCategory } from '../domain/ranking'
 import { c1, c2, isComplete, type ScoreSheet } from '../domain/scoring'
 import { CATEGORIES, categoryOf, TEAMS, type CategoryId } from '../domain/teams'
 import { categoryTies, type TieBreaks } from '../domain/ties'
@@ -116,7 +116,7 @@ export function Results({ records, onBack, io = localDeliberation, judges = JUDG
       <section className="card">
         <h2>Rank 1–5 {locked && <span className="pill submitted">Locked</span>}</h2>
         <p className="muted small">
-          Category winners ordered by final score (average of all judges). Confirm or reorder before locking.
+          Category winners ordered by final score (average of all judges). Only winners with exactly the same unrounded average can change places; confirm before locking.
         </p>
         <table>
           <thead><tr><th>Rank</th><th>Award</th><th>App</th><th>Category</th><th className="num">Final</th><th /></tr></thead>
@@ -127,13 +127,13 @@ export function Results({ records, onBack, io = localDeliberation, judges = JUDG
                 <td>{r.award}{r.tiedWithAbove && <span className="pill draft">tie</span>}</td>
                 <td>{r.winner.team.appName} <span className="muted small">{r.winner.team.university}</span></td>
                 <td>{categoryOf(r.winner.team.category).name}</td>
-                <td className="num">{r.winner.final}</td>
+                <td className="num">{r.winner.final} <span className="muted small">({exactFinal(r.winner)})</span></td>
                 <td className="moves">
                   {!locked && (
                     <>
-                      <button className="small-btn" disabled={r.rank === 1} aria-label="Move up"
+                      <button className="small-btn" disabled={!canSwap(ranks, r.rank, r.rank - 1)} aria-label="Move up"
                         onClick={() => setPending({ from: r.rank, to: r.rank - 1 })}>▲</button>
-                      <button className="small-btn" disabled={r.rank === ranks.length} aria-label="Move down"
+                      <button className="small-btn" disabled={!canSwap(ranks, r.rank, r.rank + 1)} aria-label="Move down"
                         onClick={() => setPending({ from: r.rank, to: r.rank + 1 })}>▼</button>
                     </>
                   )}
@@ -196,7 +196,7 @@ export function Results({ records, onBack, io = localDeliberation, judges = JUDG
                       {tie.tied.map((t) => (
                         <button key={t.teamId} className="secondary" disabled={tie.pick === t.teamId}
                           onClick={() => window.confirm(`Record ${TEAMS.find((x) => x.id === t.teamId)?.appName} as the ${categoryOf(s.category).name} winner?`) && void pickTie(s.category, t.teamId)}>
-                          {TEAMS.find((x) => x.id === t.teamId)?.appName} (D1 {t.d1}, D4 {t.d4})
+                          {TEAMS.find((x) => x.id === t.teamId)?.appName} (Real problem {t.d1}, Usable in real life {t.d4})
                         </button>
                       ))}
                     </div>
@@ -209,7 +209,7 @@ export function Results({ records, onBack, io = localDeliberation, judges = JUDG
                 <li key={r.team.id}>
                   <div className="standing-row">
                     <span>{r.team.appName}</span>
-                    <span className="num">{r.final}</span>
+                    <span className="num">{r.final} <span className="muted small">({exactFinal(r)})</span></span>
                   </div>
                   <div className="muted small">C1 {avg(r.team.id, c1)} · C2 {avg(r.team.id, c2)}</div>
                   {notesByTeam.get(r.team.id)?.map((n, i) => <div key={i} className="small judge-note">“{n}”</div>)}

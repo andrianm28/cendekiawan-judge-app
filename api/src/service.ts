@@ -1,7 +1,7 @@
 // Server rules for the judging API. Pure apart from the Store, so it is tested
 // without AWS.
 
-import type { Deliberation } from '../../web/src/domain/deliberation'
+import { keepsScoreOrder, type Deliberation } from '../../web/src/domain/deliberation'
 import { CRITERIA, isComplete, type PartialSheet } from '../../web/src/domain/scoring'
 import { canPutOnStage, normalizeRunOrder, sameCategoryLayout, type RunOrder } from '../../web/src/domain/runOrder'
 import { CATEGORIES, categoryOf, TEAMS, type CategoryId } from '../../web/src/domain/teams'
@@ -273,6 +273,12 @@ export class JudgingService {
     const prevLog = prev?.log.length ?? 0
     if (d.log.length < prevLog) throw new ApiError(409, 'stale', 'Deliberation changed on another device', prev)
     if (d.lockedAt) await this.requireLockable(d)
+    if (d.order.length > 0) {
+      const [scores, picks] = await Promise.all([this.store.listScores(), this.store.getTieBreaks()])
+      const sheets = submittedSheets(scores)
+      const proposed = proposeRanks(CATEGORIES.map((c) => rankCategory(c.id, TEAMS, sheets, picks[c.id]?.teamId)))
+      if (!keepsScoreOrder(proposed, d.order)) throw new ApiError(409, 'not_tied', 'Only winners with exactly the same average can change places')
+    }
     await this.store.putDeliberation(d)
     for (const change of d.log.slice(prevLog)) await this.audit('reorder_rank', { ...change })
     if (d.lockedAt) await this.audit('lock_result', { order: d.order })
