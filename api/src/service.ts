@@ -176,7 +176,8 @@ export class JudgingService {
         absent: absent.includes(s.sub),
         // An absent judge's own sheets stay on their tablet; they just stop counting.
         scores: (await this.store.listScores()).filter((x) => x.judgeId === s.sub),
-        ties: ties.filter((t) => categoryOf(t.category).group === me?.group),
+        // An absent judge no longer breaks their category's tie; the operator does (ADR 0011).
+        ties: absent.includes(s.sub) ? [] : ties.filter((t) => categoryOf(t.category).group === me?.group),
       }
     }
     // Screens count and average over `judges`, so they list the panel only; absent judges
@@ -404,6 +405,9 @@ export class JudgingService {
     const judges = await this.store.getJudges()
     if (s.role === 'judge' && judges.find((j) => j.id === s.sub)?.group !== cat.group) {
       throw new ApiError(403, 'forbidden', 'Only the judge who owns this category can break its tie')
+    }
+    if (s.role === 'judge' && (await this.store.getAbsent()).includes(s.sub)) {
+      throw new ApiError(423, 'absent', 'You are marked absent, so the operator picks this tie. Ask the operator.')
     }
     if ((await this.store.getDeliberation())?.lockedAt) throw new ApiError(423, 'locked', 'The result is locked')
     const { present, scores } = await this.panel()

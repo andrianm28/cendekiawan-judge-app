@@ -466,6 +466,17 @@ describe('absent judge', () => {
     const audit = (await call(handler, 'GET', '/admin/audit', undefined, admin)).body.map((a: { action: string }) => a.action)
     expect(audit).toEqual(expect.arrayContaining(['judge_absent', 'judge_back']))
   })
+
+  it('hands an absent owner\'s tie to the operator', async () => {
+    const { handler, admin, judges } = await three()
+    // Judges 2 and 3 submit everything; judge 1, who owns education, never comes.
+    for (const t of TEAMS) for (const tok of judges.slice(1)) await call(handler, 'PUT', `/scores/${t.id}`, { sheet: t.id === 't02' || t.order % 4 === 1 ? FULL : PLAIN, note: '', status: 'submitted', version: 1 }, tok)
+    await call(handler, 'POST', '/admin/judges/g1/absent', { absent: true }, admin)
+    expect((await call(handler, 'GET', '/state', undefined, admin)).body.ties.map((t: { category: string }) => t.category)).toEqual(['education'])
+    expect((await call(handler, 'GET', '/state', undefined, judges[0])).body.ties).toEqual([])
+    expect((await call(handler, 'PUT', '/ties/education', { teamId: 't01' }, judges[0])).body.code).toBe('absent')
+    expect((await call(handler, 'PUT', '/ties/education', { teamId: 't01' }, admin)).body.by).toBe('admin')
+  })
 })
 
 describe('guards found in the 16 Oct UAT', () => {
