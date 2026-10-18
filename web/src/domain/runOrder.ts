@@ -100,6 +100,20 @@ export function stepCurrent(r: RunOrder, delta: 1 | -1): Partial<RunOrder> {
   return { current: next }
 }
 
+/**
+ * Teams the show can never come back to once `target` goes on stage (null: the show ends)
+ * and that have not been on stage yet: the rest of the current category when it is left,
+ * and every team of a category jumped over. `presented` holds the teams already on stage.
+ */
+export function leftBehind(r: RunOrder, target: string | null, presented: Set<string>): string[] {
+  const from = Math.max(0, r.reached ?? -1)
+  const to = target ? blockOf(r.order, target) : blocks(r.order).length
+  return r.order.filter((id) => {
+    const b = blockOf(r.order, id)
+    return b >= from && b < to && id !== r.current && !presented.has(id)
+  })
+}
+
 /** Every team has presented: the stage is empty and the show has reached its last category. */
 export function showFinished(r: RunOrder): boolean {
   return !r.current && (r.reached ?? -1) >= blocks(r.order).length - 1

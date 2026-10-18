@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EMPTY_DELIBERATION } from '../domain/deliberation'
-import { canPutOnStage, canStepBack, DEFAULT_RUN_ORDER, showFinished, stepCurrent, timerClock } from '../domain/runOrder'
+import { canPutOnStage, canStepBack, DEFAULT_RUN_ORDER, leftBehind, showFinished, stepCurrent, timerClock } from '../domain/runOrder'
 import { averagedFinal, CRITERIA, finalScore, isComplete, type PartialSheet, type ScoreSheet } from '../domain/scoring'
 import { CATEGORIES, categoryOf, TEAMS, type Team } from '../domain/teams'
 import type { TieSummary } from '../domain/ties'
@@ -124,6 +124,18 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
   const onStage = TEAMS.find((t) => t.id === run.current)
   const setRun = (body: Parameters<Api['putRunOrder']>[0]) => act(() => api.putRunOrder(body))
   const sheetOf = (judgeId: string, teamId: string) => records.find((x) => x.judgeId === judgeId && x.teamId === teamId)
+  // Teams that have been on stage, from the change log (it is wiped with the event data).
+  const presented = new Set(audit.filter((a) => a.action === 'now_presenting').map((a) => String(a.detail.teamId)))
+  /** Names of the teams `target` would leave without a pitch, for a warning; empty when none. */
+  const missed = (target: string | null) => leftBehind(run, target, presented).map((id) => TEAMS.find((t) => t.id === id)!.appName)
+  const putOnStage = (id: string) => {
+    const team = TEAMS.find((t) => t.id === id)!
+    const skip = missed(id)
+    const leaving = onStage && team.category !== onStage.category
+    if (skip.length && !window.confirm(`Put ${team.appName} on stage? ${skip.join(', ')} ${skip.length === 1 ? 'has' : 'have'} not been on stage yet, and the show can never go back to ${skip.length === 1 ? 'it' : 'them'}.`)) return
+    if (!skip.length && leaving && !window.confirm(`Leave ${categoryOf(onStage.category).name}? The show cannot come back to this category.`)) return
+    void setRun({ current: id })
+  }
 
   return (
     <div className="screen wide">
@@ -175,7 +187,8 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
                 const leaving = run.current && (!next || TEAMS.find((t) => t.id === next)?.category !== onStage?.category)
                 const waiting = onStage ? judges.filter((j) => sheetOf(j.id, onStage.id)?.status !== 'submitted') : []
                 if (waiting.length && !window.confirm(`${waiting.map((j) => j.name).join(', ')} ${waiting.length === 1 ? 'has' : 'have'} not submitted ${onStage!.appName} yet. Move on anyway? Their tablets stay on this team until they submit.`)) return
-                if (leaving && !window.confirm(`Leave ${categoryOf(onStage!.category).name}? The show cannot come back to this category.`)) return
+                const skip = leaving ? missed(next ?? null) : []
+                if (leaving && !window.confirm(`Leave ${categoryOf(onStage!.category).name}? ${skip.length ? `${skip.join(', ')} ${skip.length === 1 ? 'has' : 'have'} not been on stage yet. ` : ''}The show cannot come back to this category.`)) return
                 void setRun(stepCurrent(run, 1))
               }}>
                 {showFinished(run) ? 'Show finished' : !run.current ? 'Start with first team ›' : run.order.indexOf(run.current) === run.order.length - 1 ? 'Finish ›' : 'Next team ›'}
@@ -203,7 +216,7 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
                 scored={(id) => judges.filter((j) => sheetOf(j.id, id)?.status === 'submitted').length}
                 onReorder={(order) => void setRun({ order })}
                 canStage={(id) => canPutOnStage(run, id)}
-                onStage={(id) => void setRun({ current: id })}
+                onStage={putOnStage}
               />
             </details>
           </section>

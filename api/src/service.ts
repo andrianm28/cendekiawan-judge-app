@@ -54,6 +54,11 @@ export interface ScoreInput {
   status: 'draft' | 'submitted'
   /** The tablet's version counter for this sheet; must increase. */
   version: number
+  /**
+   * The event data the tablet's sheet belongs to (its last seen epoch). Sent by tablets
+   * since the 18 Oct UAT; older tablets leave it out and are not checked.
+   */
+  epoch?: string | null
 }
 
 export class JudgingService {
@@ -202,6 +207,11 @@ export class JudgingService {
     if (!judge || !team) throw new ApiError(404, 'not_found', 'Unknown judge or team')
     validate(input)
     await this.requireUnlocked()
+    // A Reset landed between this tablet's /state and this upload: the sheet belongs to the
+    // rehearsal. The tablet drops it on its next round instead of carrying it into the event.
+    if (input.epoch !== undefined && input.epoch !== (await this.store.getEpoch())) {
+      throw new ApiError(409, 'epoch_changed', 'The event data was reset; this sheet belongs to the old data')
+    }
     if ((await this.store.getAbsent()).includes(judge.id)) {
       throw new ApiError(423, 'absent', 'You are marked absent, so your scores do not count. Ask the operator.')
     }
@@ -264,7 +274,11 @@ export class JudgingService {
     if ((await this.store.getAbsent()).includes(judgeId)) throw new ApiError(409, 'absent', 'This judge is marked absent. Bring them back first.')
     // No sheet yet (a tablet failed before saving): the operator enters it from the paper backup.
     const prev = (await this.store.getScore(judgeId, teamId)) ?? { judgeId, teamId, sheet: {}, note: '', status: 'draft' as const, version: 0, updatedAt: '' }
-    const next: StoredScore = { ...prev, ...input, version: prev.version + CORRECTION_STEP, updatedAt: this.now().toISOString() }
+    // Only the sheet, note and status come from the request: the body also carries the
+    // reason, and nothing in it may name another judge's or team's sheet.
+    const next: StoredScore = {
+      ...prev, sheet: input.sheet, note: input.note, status: input.status, version: prev.version + CORRECTION_STEP, updatedAt: this.now().toISOString(),
+    }
     await this.store.putScore(next)
     await this.audit('correct_score', { judgeId, teamId, reason: reason.trim(), before: prev, after: next })
     return next

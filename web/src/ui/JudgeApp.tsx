@@ -26,6 +26,7 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
   const [epoch, setEpoch] = useState(0)
   const running = useRef(false)
   const lastCurrent = useRef<string | null | undefined>(undefined)
+  const openTeam = useRef<string | null>(null)
   const judge = sync?.judge ?? session.judge!
 
   const round = useCallback(async () => {
@@ -41,7 +42,9 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
       }
       if (r.replaced.length || r.reset) {
         await refresh()
-        setEpoch((e) => e + 1)
+        // Remount the open sheet only when its own record changed, so a correction to
+        // another team does not wipe a note the judge is still typing.
+        if (r.reset || (openTeam.current && r.replaced.includes(openTeam.current))) setEpoch((e) => e + 1)
       }
     } finally {
       running.current = false
@@ -54,6 +57,7 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
     return () => clearInterval(t)
   }, [round])
 
+  openTeam.current = team?.id ?? null
   const runOrder = sync?.runOrder ?? DEFAULT_RUN_ORDER
   const submittedHere = (teamId: string) =>
     records.some((r) => r.teamId === teamId && r.judgeId === judge.id && r.status === 'submitted')

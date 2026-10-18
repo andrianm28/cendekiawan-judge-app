@@ -51,7 +51,7 @@ export async function syncJudge(api: Api, store: ScoreStore, judgeId: string): P
     for (const r of (await store.listForJudge(judgeId)).filter((x) => !x.synced)) {
       try {
         // A sheet saved under an older rubric may still hold a dropped criterion (V3).
-        await api.saveScore({ ...r, sheet: currentCriteria(r.sheet) })
+        await api.saveScore({ ...r, sheet: currentCriteria(r.sheet) }, epoch)
         await store.markSynced(judgeId, r.teamId, r.version)
       } catch (e) {
         if (!(e instanceof ApiError)) throw e
@@ -61,9 +61,10 @@ export async function syncJudge(api: Api, store: ScoreStore, judgeId: string): P
           rejected++
           continue
         }
-        // 409: the server holds a newer copy; 423: category closed, or the sheet was
-        // submitted and the deliberation is not open. Either way the server copy wins
-        // (here, or below for a closed category).
+        // 409: the server holds a newer copy, or a Reset happened since /state (the next
+        // round drops the sheet); 423: category closed, or the sheet was submitted and the
+        // deliberation is not open. Either way the server copy wins (here, or below for a
+        // closed category).
         if ((e.status === 409 || e.status === 423) && e.current && (await store.adopt(e.current as ServerScore, true))) replaced.push(r.teamId)
         else if (e.status !== 409 && e.status !== 423) throw e
       }

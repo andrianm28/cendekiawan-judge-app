@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import type { TimerClock } from '../domain/runOrder'
 import { LEVEL_NAMES, SEGMENTS, type Criterion } from '../domain/rubric'
 import { CRITERIA, finalScore, isComplete, type Level, type PartialSheet } from '../domain/scoring'
@@ -40,6 +40,14 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer, time
   const frozen = locked || (submitted && submittedFrozen)
   // Changing a submitted sheet makes it a draft again, so the judge submits it again.
   const edit = (change: { sheet?: PartialSheet; note?: string }) => onChange(submitted ? { ...change, status: 'draft' } : change)
+  // A note still being typed when the sheet closes (the operator put the next team on stage)
+  // gets no blur event: save it as the sheet closes.
+  const typed = useRef<string | null>(null)
+  const latest = useRef({ edit, note: record?.note ?? '' })
+  latest.current = { edit, note: record?.note ?? '' }
+  useEffect(() => () => {
+    if (typed.current !== null && typed.current !== latest.current.note) latest.current.edit({ note: typed.current })
+  }, [])
 
   return (
     <div className="screen">
@@ -73,7 +81,11 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer, time
           defaultValue={record?.note ?? ''}
           disabled={frozen}
           maxLength={200}
-          onBlur={(e) => e.target.value !== (record?.note ?? '') && edit({ note: e.target.value })}
+          onChange={(e) => { typed.current = e.target.value }}
+          onBlur={(e) => {
+            typed.current = null
+            if (e.target.value !== (record?.note ?? '')) edit({ note: e.target.value })
+          }}
         />
       </label>
 

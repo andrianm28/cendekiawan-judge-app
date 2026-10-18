@@ -352,6 +352,19 @@ describe('reset after a rehearsal', () => {
     expect((await call(handler, 'POST', '/login', { pin: '1111' })).status).toBe(200)
     expect((await call(handler, 'PUT', '/scores/t01', { sheet: FULL, note: '', status: 'submitted', version: 1 }, g1)).status).toBe(200)
   })
+  it('refuses a sheet sent under the epoch from before a reset', async () => {
+    const { handler, store } = await setup()
+    const g1 = (await call(handler, 'POST', '/login', { pin: '1111' })).body.token
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    const old = (await call(handler, 'GET', '/state', undefined, g1)).body.epoch
+    await call(handler, 'POST', '/admin/reset', { confirm: 'RESET' }, admin)
+    const late = await call(handler, 'PUT', '/scores/t01', { sheet: FULL, note: 'rehearsal', status: 'draft', version: 1, epoch: old }, g1)
+    expect(late.status).toBe(409)
+    expect(late.body.code).toBe('epoch_changed')
+    expect(await store.getScore('g1', 't01')).toBeUndefined()
+    const now = (await call(handler, 'GET', '/state', undefined, g1)).body.epoch
+    expect((await call(handler, 'PUT', '/scores/t01', { sheet: FULL, note: '', status: 'draft', version: 1, epoch: now }, g1)).status).toBe(200)
+  })
 })
 
 describe('editing judges', () => {
@@ -425,6 +438,21 @@ describe('admin', () => {
   it('throws typed errors from the service', async () => {
     const { service } = await setup()
     await expect(service.login('abc')).rejects.toBeInstanceOf(ApiError)
+  })
+})
+
+describe('operator correction', () => {
+  it('writes only the judge and team in the path and keeps no extra fields from the body', async () => {
+    const { handler, store } = await setup()
+    const g2 = (await call(handler, 'POST', '/login', { pin: '2222' })).body.token
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    await call(handler, 'PUT', '/scores/t01', { sheet: PLAIN, note: 'mine', status: 'draft', version: 1 }, g2)
+    const body = { sheet: FULL, note: 'paper', status: 'submitted', reason: 'paper sheet', judgeId: 'g2', teamId: 't02', version: 5 }
+    expect((await call(handler, 'PUT', '/admin/scores/g1/t01', body, admin)).status).toBe(200)
+    expect((await store.getScore('g2', 't01'))?.note).toBe('mine')
+    const g1 = await store.getScore('g1', 't01')
+    expect(g1).toMatchObject({ judgeId: 'g1', teamId: 't01', note: 'paper', status: 'submitted', version: CORRECTION_STEP })
+    expect(Object.keys(g1!).sort()).toEqual(['judgeId', 'note', 'sheet', 'status', 'teamId', 'updatedAt', 'version'])
   })
 })
 
