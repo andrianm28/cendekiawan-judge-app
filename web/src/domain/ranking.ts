@@ -65,8 +65,11 @@ export function rankCategory(
   category: CategoryId,
   teams: Team[],
   sheetsByTeam: Map<string, ScoreSheet[]>,
-  /** Team the category's judge picked to break a tie at the top. */
-  pick?: string | null,
+  /**
+   * Team the category's judge picked to break a tie at the top, or the stored pick: one that
+   * lists the teams it was made between applies only while exactly those teams are tied.
+   */
+  pick?: string | { teamId: string; tied?: string[] } | null,
 ): CategoryStanding {
   const inCategory = teams.filter((t) => t.category === category)
   const scored = inCategory.filter((t) => (sheetsByTeam.get(t.id) ?? []).length > 0)
@@ -75,14 +78,17 @@ export function rankCategory(
     .sort((a, b) => compareResults(a, b) || a.team.order - b.team.order)
   const tiedTop = sorted.length > 1 && sameFinal(sorted[0], sorted[1]) ? sorted.filter((r) => sameFinal(r, sorted[0])) : sorted.slice(0, 1)
   const tie = tiedTop.length > 1
-  const applies = tie && !!pick && tiedTop.some((r) => r.team.id === pick)
-  const ranked = applies ? [...sorted.filter((r) => r.team.id === pick), ...sorted.filter((r) => r.team.id !== pick)] : sorted
+  const picked = typeof pick === 'string' ? pick : pick?.teamId
+  const between = typeof pick === 'object' ? pick?.tied : undefined
+  const sameTie = !between || (between.length === tiedTop.length && tiedTop.every((r) => between.includes(r.team.id)))
+  const applies = tie && !!picked && sameTie && tiedTop.some((r) => r.team.id === picked)
+  const ranked = applies ? [...sorted.filter((r) => r.team.id === picked), ...sorted.filter((r) => r.team.id !== picked)] : sorted
   return {
     category,
     ranked,
     missing: inCategory.filter((t) => !scored.includes(t)),
     tiedTop,
-    pick: applies ? pick! : null,
+    pick: applies ? picked! : null,
     tiedAtTop: tie && !applies,
   }
 }

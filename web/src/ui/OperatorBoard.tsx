@@ -60,15 +60,19 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
     pickTie: async (category, teamId) => void (await api.pickTieWinner(category, teamId)),
   }), [api])
 
-  const act = async (fn: () => Promise<unknown>) => {
+  /** Runs an operator action; false when it failed (already told with an alert). */
+  const act = async (fn: () => Promise<unknown>): Promise<boolean> => {
+    let ok = true
     try {
       await fn()
     } catch (e) {
+      ok = false
       // fetch fails with a TypeError (or an abort) when the laptop has no connection.
       const offline = e instanceof TypeError || (e instanceof Error && e.message === 'No answer from the server')
       window.alert(offline ? 'Cannot reach the server. Check the Wi-Fi and try again.' : e instanceof Error ? e.message : String(e))
     }
     await refresh()
+    return ok
   }
 
   if (view.kind === 'results') {
@@ -110,7 +114,7 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
         judge={view.judge}
         team={view.team}
         record={records.find((r) => r.judgeId === view.judge.id && r.teamId === view.team.id)}
-        onSave={(r, reason) => act(() => api.correctScore(view.judge.id, view.team.id, r, reason)).then(() => setView({ kind: 'board' }))}
+        onSave={(r, reason) => act(() => api.correctScore(view.judge.id, view.team.id, r, reason)).then((ok) => { if (ok) setView({ kind: 'board' }) })}
         onBack={() => setView({ kind: 'board' })}
       />
     )
@@ -327,10 +331,10 @@ export function OperatorBoard({ api, onLogout }: { api: Api; onLogout: () => voi
           })}
         </>
       )}
-      <ResetCard scores={records.length} locked={!!state?.locked} onReset={(phrase) => act(async () => {
+      <ResetCard scores={records.length} locked={!!state?.locked} onReset={async (phrase) => void (await act(async () => {
         const r = await api.resetEventData(phrase)
         window.alert(`Reset done: ${r.scores} score ${r.scores === 1 ? 'sheet' : 'sheets'} removed (a copy is archived on the server). Tablets clear their copies on their next sync.`)
-      })} />
+      }))} />
       <section className="card">
         <h2>Change log</h2>
         {audit.length === 0 ? <p className="muted small">No changes yet.</p> : (
@@ -387,6 +391,7 @@ function describe(a: AuditEntry, judges: Judge[]): string {
     case 'close_group': return `Closed ${CATEGORIES.find((c) => c.group === d.group)?.name ?? `Group ${d.group}`}`
     case 'open_group': return `Reopened ${CATEGORIES.find((c) => c.group === d.group)?.name ?? `Group ${d.group}`}`
     case 'correct_score': return `Corrected ${judge}'s score for ${team}: ${d.reason}`
+    case 'change_submitted': return `${judge} changed their submitted score for ${team}${d.status === 'submitted' ? ' and submitted it again' : ' (now a draft)'}`
     case 'rename_judge': {
       const parts = [d.before === d.after ? `Updated ${d.after}'s profile` : `Renamed ${d.before} to ${d.after}`]
       if (d.toGroup) parts.push(`now owns ${CATEGORIES.find((c) => c.group === d.toGroup)?.name}${d.swappedWith ? ` (swapped with ${judges.find((j) => j.id === d.swappedWith)?.name ?? d.swappedWith})` : ''}`)

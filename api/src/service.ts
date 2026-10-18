@@ -78,9 +78,24 @@ export class JudgingService {
    * same panel.
    */
   private async panel() {
-    const [judges, absent, scores] = await Promise.all([this.store.getJudges(), this.store.getAbsent(), this.store.listScores()])
+    const [judges, absent, scores] = await Promise.all([this.store.getJudges(), this.store.getAbsent(), this.scores()])
     const present = judges.filter((j) => !absent.includes(j.id))
     return { judges, absent, present, scores: scores.filter((x) => !absent.includes(x.judgeId)) }
+  }
+
+  /**
+   * Sheets of the current event data. A sheet written while a Reset was deleting (it passed
+   * the epoch check just before the new epoch) carries the old epoch and is ignored.
+   * Sheets saved before epochs were stamped on them have none and count.
+   */
+  private async scores(): Promise<StoredScore[]> {
+    const [all, epoch] = await Promise.all([this.store.listScores(), this.store.getEpoch()])
+    return all.filter((x) => x.epoch === undefined || x.epoch === epoch)
+  }
+
+  private async score(judgeId: string, teamId: string): Promise<StoredScore | undefined> {
+    const [x, epoch] = await Promise.all([this.store.getScore(judgeId, teamId), this.store.getEpoch()])
+    return x && (x.epoch === undefined || x.epoch === epoch) ? x : undefined
   }
 
   async login(pin: string) {
@@ -180,7 +195,7 @@ export class JudgingService {
         judges: publicJudges.filter((j) => j.id === s.sub),
         absent: absent.includes(s.sub),
         // An absent judge's own sheets stay on their tablet; they just stop counting.
-        scores: (await this.store.listScores()).filter((x) => x.judgeId === s.sub),
+        scores: (await this.scores()).filter((x) => x.judgeId === s.sub),
         // An absent judge no longer breaks their category's tie; the operator does (ADR 0011).
         ties: absent.includes(s.sub) ? [] : ties.filter((t) => categoryOf(t.category).group === me?.group),
       }
@@ -209,7 +224,8 @@ export class JudgingService {
     await this.requireUnlocked()
     // A Reset landed between this tablet's /state and this upload: the sheet belongs to the
     // rehearsal. The tablet drops it on its next round instead of carrying it into the event.
-    if (input.epoch !== undefined && input.epoch !== (await this.store.getEpoch())) {
+    const epoch = await this.store.getEpoch()
+    if (input.epoch !== undefined && input.epoch !== epoch) {
       throw new ApiError(409, 'epoch_changed', 'The event data was reset; this sheet belongs to the old data')
     }
     if ((await this.store.getAbsent()).includes(judge.id)) {
@@ -218,7 +234,7 @@ export class JudgingService {
     if ((await this.store.getClosedGroups()).includes(categoryOf(team.category).group)) {
       throw new ApiError(423, 'group_closed', 'This category is closed. Ask the operator to change a score.')
     }
-    const prev = await this.store.getScore(judge.id, teamId)
+    const prev = await this.score(judge.id, teamId)
     if (prev && input.version <= prev.version) {
       throw new ApiError(409, 'stale', 'A newer version is already saved', prev)
     }
@@ -234,8 +250,14 @@ export class JudgingService {
       status: input.status,
       version: input.version,
       updatedAt: this.now().toISOString(),
+      epoch,
     }
     await this.store.putScore(next)
+    await this.undoIfLocked(prev)
+    if (prev?.status === 'submitted') {
+      // A judge changing a submitted sheet in the deliberation can move a winner: keep both versions.
+      await this.audit('change_submitted', { judgeId: judge.id, teamId, before: prev.sheet, after: next.sheet, status: next.status }, judge.id)
+    }
     await this.store.touchPresence(judge.id, next.updatedAt)
     return next
   }
@@ -250,7 +272,7 @@ export class JudgingService {
     const sheets = submittedSheets(scores)
     const submitted = [...sheets.values()].reduce((a, x) => a + x.length, 0)
     if (submitted < TEAMS.length * present.length) throw new ApiError(409, 'not_all_in', 'Every judge must submit every team before the result is locked')
-    const standings = CATEGORIES.map((c) => rankCategory(c.id, TEAMS, sheets, picks[c.id]?.teamId))
+    const standings = CATEGORIES.map((c) => rankCategory(c.id, TEAMS, sheets, picks[c.id]))
     if (standings.some((s) => s.tiedAtTop)) throw new ApiError(409, 'tie_open', 'A category tie still needs its winner')
     const winners = proposeRanks(standings).map((r) => r.winner.team.id)
     const fits = d.order.length === winners.length && winners.every((id) => d.order.includes(id))
@@ -260,6 +282,18 @@ export class JudgingService {
   /** Once the result is locked the scores behind it are frozen too, or a late change could move a winner. */
   private async requireUnlocked() {
     if ((await this.store.getDeliberation())?.lockedAt) throw new ApiError(423, 'locked', 'The result is locked. Scores can no longer change.')
+  }
+
+  /**
+   * Second look after a sheet is written: a Lock that landed between the first check and the
+   * write would rest on a sheet it never saw, so the sheet goes back and the save is refused.
+   * Lock does the mirror check after it writes, so one of the two always sees the other.
+   */
+  private async undoIfLocked(prev: StoredScore | undefined) {
+    if (!(await this.store.getDeliberation())?.lockedAt) return
+    // Without a previous sheet the Lock could not have passed (it needs every sheet submitted).
+    if (prev) await this.store.putScore(prev)
+    throw new ApiError(423, 'locked', 'The result is locked. Scores can no longer change.')
   }
 
   /** Operator change to a score after the fact, always with a reason in the audit log. */
@@ -273,13 +307,16 @@ export class JudgingService {
     }
     if ((await this.store.getAbsent()).includes(judgeId)) throw new ApiError(409, 'absent', 'This judge is marked absent. Bring them back first.')
     // No sheet yet (a tablet failed before saving): the operator enters it from the paper backup.
-    const prev = (await this.store.getScore(judgeId, teamId)) ?? { judgeId, teamId, sheet: {}, note: '', status: 'draft' as const, version: 0, updatedAt: '' }
+    const stored = await this.score(judgeId, teamId)
+    const prev = stored ?? { judgeId, teamId, sheet: {}, note: '', status: 'draft' as const, version: 0, updatedAt: '' }
     // Only the sheet, note and status come from the request: the body also carries the
     // reason, and nothing in it may name another judge's or team's sheet.
     const next: StoredScore = {
       ...prev, sheet: input.sheet, note: input.note, status: input.status, version: prev.version + CORRECTION_STEP, updatedAt: this.now().toISOString(),
+      epoch: await this.store.getEpoch(),
     }
     await this.store.putScore(next)
+    await this.undoIfLocked(stored)
     await this.audit('correct_score', { judgeId, teamId, reason: reason.trim(), before: prev, after: next })
     return next
   }
@@ -369,10 +406,20 @@ export class JudgingService {
     if (d.order.length > 0) {
       const [{ scores }, picks] = await Promise.all([this.panel(), this.store.getTieBreaks()])
       const sheets = submittedSheets(scores)
-      const proposed = proposeRanks(CATEGORIES.map((c) => rankCategory(c.id, TEAMS, sheets, picks[c.id]?.teamId)))
+      const proposed = proposeRanks(CATEGORIES.map((c) => rankCategory(c.id, TEAMS, sheets, picks[c.id])))
       if (!keepsScoreOrder(proposed, d.order)) throw new ApiError(409, 'not_tied', 'Only winners with exactly the same average can change places')
     }
     await this.store.putDeliberation(d)
+    if (d.lockedAt) {
+      // A sheet or tie pick written while this Lock was being checked: check again now the lock
+      // is stored (the score save checks after its write too), and take the lock back if needed.
+      try {
+        await this.requireLockable(d)
+      } catch (e) {
+        await this.store.putDeliberation(prev ?? { order: [], log: [], lockedAt: null })
+        throw e
+      }
+    }
     for (const change of d.log.slice(prevLog)) await this.audit('reorder_rank', { ...change })
     if (d.lockedAt) await this.audit('lock_result', { order: d.order })
     return d
@@ -388,6 +435,9 @@ export class JudgingService {
   async putRunOrder(s: Session, body: { order?: string[]; current?: string | null; timer?: 'start' | 'reset' | 'pause' | 'resume'; deliberation?: boolean }) {
     requireAdmin(s)
     const prev = normalizeRunOrder(await this.store.getRunOrder())
+    if (body.order !== undefined && (!Array.isArray(body.order) || !body.order.every((id) => typeof id === 'string'))) {
+      throw new ApiError(400, 'bad_order', 'The order must be a list of team ids')
+    }
     const order = body.order === undefined ? prev.order : normalizeRunOrder({ order: body.order }).order
     if (!sameCategoryLayout(order, prev.order)) throw new ApiError(400, 'bad_order', 'Teams can only move inside their own category')
     const current = body.current === undefined ? prev.current : body.current
@@ -428,9 +478,15 @@ export class JudgingService {
     const tie = categoryTies(scores, present.length, {}).find((t) => t.category === category)
     if (!tie) throw new ApiError(409, 'no_tie', 'There is no tie to break in this category (or scoring is not complete)')
     if (!tie.tied.some((t) => t.teamId === teamId)) throw new ApiError(400, 'not_tied', 'That team is not one of the tied teams')
-    const pick = { teamId, by: s.role === 'admin' ? 'admin' : s.sub, at: this.now().toISOString() }
+    const tied = tie.tied.map((t) => t.teamId)
+    const pick = { teamId, by: s.role === 'admin' ? 'admin' : s.sub, at: this.now().toISOString(), tied }
+    const before = (await this.store.getTieBreaks())[category as CategoryId]
     await this.store.putTieBreak(category as CategoryId, pick)
-    await this.audit('tie_pick', { category, teamId, tied: tie.tied.map((t) => t.teamId) }, pick.by)
+    if ((await this.store.getDeliberation())?.lockedAt) {
+      if (before) await this.store.putTieBreak(category as CategoryId, before)
+      throw new ApiError(423, 'locked', 'The result is locked')
+    }
+    await this.audit('tie_pick', { category, teamId, tied }, pick.by)
     return pick
   }
 

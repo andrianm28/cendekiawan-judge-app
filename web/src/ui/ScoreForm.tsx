@@ -43,11 +43,19 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer, time
   // A note still being typed when the sheet closes (the operator put the next team on stage)
   // gets no blur event: save it as the sheet closes.
   const typed = useRef<string | null>(null)
-  const latest = useRef({ edit, note: record?.note ?? '' })
-  latest.current = { edit, note: record?.note ?? '' }
+  const latest = useRef({ edit, note: record?.note ?? '', submitted, frozen })
+  latest.current = { edit, note: record?.note ?? '', submitted, frozen }
   useEffect(() => () => {
-    if (typed.current !== null && typed.current !== latest.current.note) latest.current.edit({ note: typed.current })
+    const { edit, note, submitted, frozen } = latest.current
+    // A submitted sheet is not turned back into a draft just because it closed.
+    if (typed.current !== null && typed.current !== note && !submitted && !frozen) edit({ note: typed.current })
   }, [])
+  // iPad Safari keeps focus in the note when Submit is tapped, so the note rides on the submit.
+  const submit = () => {
+    const note = typed.current
+    typed.current = null
+    onChange({ status: 'submitted', ...(note !== null && note !== (record?.note ?? '') ? { note } : {}) })
+  }
 
   return (
     <div className="screen">
@@ -102,7 +110,7 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer, time
               : '✓ Submitted. To change it, tap a new level, then press Submit again.'}
           </p>
         ) : (
-          <button className="primary" disabled={!complete || locked} onClick={() => onChange({ status: 'submitted' })}>
+          <button className="primary" disabled={!complete || locked} onClick={submit}>
             {complete ? 'Submit score' : `Score all ${CRITERIA.length} criteria (${CRITERIA.filter((k) => sheet[k] !== undefined).length}/${CRITERIA.length})`}
           </button>
         ))}

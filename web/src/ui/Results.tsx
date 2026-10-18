@@ -79,7 +79,7 @@ export function Results({ records, onBack, io = localDeliberation, judges = JUDG
     const sheets = sheetsByTeam.get(teamId) ?? []
     return Math.round((sheets.reduce((a, s) => a + f(s), 0) / sheets.length) * 10) / 10
   }
-  const standings = CATEGORIES.map((c) => rankCategory(c.id, TEAMS, sheetsByTeam, ties[c.id]?.teamId))
+  const standings = CATEGORIES.map((c) => rankCategory(c.id, TEAMS, sheetsByTeam, ties[c.id]))
   const { ranks, stale } = applyOrder(proposeRanks(standings), delib)
   const openTies = categoryTies(records, judges.length, ties)
   const allIn = [...sheetsByTeam.values()].reduce((a, x) => a + x.length, 0) >= TEAMS.length * judges.length
