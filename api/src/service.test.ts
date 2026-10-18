@@ -273,8 +273,10 @@ describe('submitted scores', () => {
 
     await call(handler, 'PUT', '/admin/runorder', { deliberation: false }, admin)
     expect((await save({ sheet: FULL, status: 'draft' }, 6)).status).toBe(423)
-    const audit = (await call(handler, 'GET', '/admin/audit', undefined, admin)).body.map((a: { action: string }) => a.action)
-    expect(audit).toEqual(['open_deliberation', 'close_deliberation'])
+    const log = (await call(handler, 'GET', '/admin/audit', undefined, admin)).body
+    expect(log.map((a: { action: string }) => a.action)).toEqual(['open_deliberation', 'change_submitted', 'close_deliberation'])
+    // The change of a submitted sheet keeps both versions, under the judge's name.
+    expect(log[1]).toMatchObject({ actor: 'g1', detail: { judgeId: 'g1', teamId: 't01', before: FULL, after: { ...FULL, d1: 1 }, status: 'draft' } })
   })
 })
 
@@ -352,6 +354,19 @@ describe('reset after a rehearsal', () => {
     expect((await call(handler, 'POST', '/login', { pin: '1111' })).status).toBe(200)
     expect((await call(handler, 'PUT', '/scores/t01', { sheet: FULL, note: '', status: 'submitted', version: 1 }, g1)).status).toBe(200)
   })
+  it('refuses a sheet sent under the epoch from before a reset', async () => {
+    const { handler, store } = await setup()
+    const g1 = (await call(handler, 'POST', '/login', { pin: '1111' })).body.token
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    const old = (await call(handler, 'GET', '/state', undefined, g1)).body.epoch
+    await call(handler, 'POST', '/admin/reset', { confirm: 'RESET' }, admin)
+    const late = await call(handler, 'PUT', '/scores/t01', { sheet: FULL, note: 'rehearsal', status: 'draft', version: 1, epoch: old }, g1)
+    expect(late.status).toBe(409)
+    expect(late.body.code).toBe('epoch_changed')
+    expect(await store.getScore('g1', 't01')).toBeUndefined()
+    const now = (await call(handler, 'GET', '/state', undefined, g1)).body.epoch
+    expect((await call(handler, 'PUT', '/scores/t01', { sheet: FULL, note: '', status: 'draft', version: 1, epoch: now }, g1)).status).toBe(200)
+  })
 })
 
 describe('editing judges', () => {
@@ -428,6 +443,89 @@ describe('admin', () => {
   })
 })
 
+describe('operator correction', () => {
+  it('writes only the judge and team in the path and keeps no extra fields from the body', async () => {
+    const { handler, store } = await setup()
+    const g2 = (await call(handler, 'POST', '/login', { pin: '2222' })).body.token
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    await call(handler, 'PUT', '/scores/t01', { sheet: PLAIN, note: 'mine', status: 'draft', version: 1 }, g2)
+    const body = { sheet: FULL, note: 'paper', status: 'submitted', reason: 'paper sheet', judgeId: 'g2', teamId: 't02', version: 5 }
+    expect((await call(handler, 'PUT', '/admin/scores/g1/t01', body, admin)).status).toBe(200)
+    expect((await store.getScore('g2', 't01'))?.note).toBe('mine')
+    const g1 = await store.getScore('g1', 't01')
+    expect(g1).toMatchObject({ judgeId: 'g1', teamId: 't01', note: 'paper', status: 'submitted', version: CORRECTION_STEP })
+    expect(Object.keys(g1!).sort()).toEqual(['epoch', 'judgeId', 'note', 'sheet', 'status', 'teamId', 'updatedAt', 'version'])
+  })
+})
+
+describe('guards found in the 18 Oct UAT', () => {
+  it('ignores a sheet written under the old epoch while a reset was deleting', async () => {
+    const { handler, store } = await setup()
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    await call(handler, 'POST', '/admin/reset', { confirm: 'RESET' }, admin)
+    // Landed after the deletes, stamped with the epoch from before the reset.
+    await store.putScore({ judgeId: 'g1', teamId: 't01', sheet: FULL, note: 'rehearsal', status: 'submitted', version: 3, updatedAt: '', epoch: 'old' })
+    const g1 = (await call(handler, 'POST', '/login', { pin: '1111' })).body.token
+    expect((await call(handler, 'GET', '/state', undefined, admin)).body.scores).toEqual([])
+    expect((await call(handler, 'GET', '/state', undefined, g1)).body.scores).toEqual([])
+    // The judge scores the team for real: the stray sheet does not block it.
+    expect((await call(handler, 'PUT', '/scores/t01', { sheet: PLAIN, note: '', status: 'submitted', version: 1 }, g1)).status).toBe(200)
+  })
+
+  it('takes a lock back when a sheet changed while it was being checked', async () => {
+    const { handler, store } = await setup()
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    const winners = await scoreEveryTeam(handler)
+    // The judge's change lands between the lock's first check and its write.
+    const put = store.putDeliberation.bind(store)
+    store.putDeliberation = async (d) => {
+      if (d.lockedAt) await store.putScore({ ...(await store.getScore('g1', winners[0]))!, status: 'draft', version: 9 })
+      return put(d)
+    }
+    const r = await call(handler, 'PUT', '/admin/deliberation', { order: winners, log: [], lockedAt: 'now' }, admin)
+    expect(r.status).toBe(409)
+    expect((await store.getDeliberation())?.lockedAt).toBeFalsy()
+  })
+
+  it('puts a sheet back when a lock landed while it was being saved', async () => {
+    const { handler, store } = await setup()
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    const g1 = (await call(handler, 'POST', '/login', { pin: '1111' })).body.token
+    const winners = await scoreEveryTeam(handler)
+    await call(handler, 'PUT', '/admin/runorder', { deliberation: true }, admin)
+    const put = store.putScore.bind(store)
+    store.putScore = async (x) => {
+      await put(x)
+      if (x.version === 2) await store.putDeliberation({ order: winners, log: [], lockedAt: 'now' })
+    }
+    const r = await call(handler, 'PUT', `/scores/${winners[0]}`, { sheet: PLAIN, note: '', status: 'draft', version: 2 }, g1)
+    expect(r.status).toBe(423)
+    expect((await store.getScore('g1', winners[0]))?.status).toBe('submitted')
+  })
+
+  it('applies a tie pick only to the tie it was made for', async () => {
+    const { handler } = await setup()
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    const g1 = (await call(handler, 'POST', '/login', { pin: '1111' })).body.token
+    // t01 and t02 tie at the top of education; t03 and t04 below.
+    await scoreEveryTeam(handler, { t02: FULL })
+    expect((await call(handler, 'PUT', '/ties/education', { teamId: 't02' }, g1)).body.tied).toEqual(['t01', 't02'])
+    await call(handler, 'PUT', '/admin/runorder', { deliberation: true }, admin)
+    // In the deliberation t03 joins the tie: the earlier pick no longer decides it.
+    const g2 = (await call(handler, 'POST', '/login', { pin: '2222' })).body.token
+    for (const tok of [g1, g2]) await call(handler, 'PUT', '/scores/t03', { sheet: FULL, note: '', status: 'submitted', version: 2 }, tok)
+    const tie = (await call(handler, 'GET', '/state', undefined, admin)).body.ties.find((t: { category: string }) => t.category === 'education')
+    expect(tie.tied.map((t: { teamId: string }) => t.teamId)).toEqual(['t01', 't02', 't03'])
+    expect(tie.pick).toBeNull()
+  })
+
+  it('refuses a running order that is not a list of team ids', async () => {
+    const { handler } = await setup()
+    const admin = (await call(handler, 'POST', '/login', { pin: '999999' })).body.token
+    for (const order of ['abc', [1, 2], { a: 1 }]) expect((await call(handler, 'PUT', '/admin/runorder', { order }, admin)).status).toBe(400)
+  })
+})
+
 describe('absent judge', () => {
   async function three() {
     const store = memoryStore()
@@ -465,6 +563,17 @@ describe('absent judge', () => {
     expect((await call(handler, 'GET', '/state', undefined, admin)).body.judges).toHaveLength(3)
     const audit = (await call(handler, 'GET', '/admin/audit', undefined, admin)).body.map((a: { action: string }) => a.action)
     expect(audit).toEqual(expect.arrayContaining(['judge_absent', 'judge_back']))
+  })
+
+  it('hands an absent owner\'s tie to the operator', async () => {
+    const { handler, admin, judges } = await three()
+    // Judges 2 and 3 submit everything; judge 1, who owns education, never comes.
+    for (const t of TEAMS) for (const tok of judges.slice(1)) await call(handler, 'PUT', `/scores/${t.id}`, { sheet: t.id === 't02' || t.order % 4 === 1 ? FULL : PLAIN, note: '', status: 'submitted', version: 1 }, tok)
+    await call(handler, 'POST', '/admin/judges/g1/absent', { absent: true }, admin)
+    expect((await call(handler, 'GET', '/state', undefined, admin)).body.ties.map((t: { category: string }) => t.category)).toEqual(['education'])
+    expect((await call(handler, 'GET', '/state', undefined, judges[0])).body.ties).toEqual([])
+    expect((await call(handler, 'PUT', '/ties/education', { teamId: 't01' }, judges[0])).body.code).toBe('absent')
+    expect((await call(handler, 'PUT', '/ties/education', { teamId: 't01' }, admin)).body.by).toBe('admin')
   })
 })
 

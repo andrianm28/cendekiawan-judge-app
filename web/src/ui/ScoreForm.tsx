@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import type { TimerClock } from '../domain/runOrder'
 import { LEVEL_NAMES, SEGMENTS, type Criterion } from '../domain/rubric'
 import { CRITERIA, finalScore, isComplete, type Level, type PartialSheet } from '../domain/scoring'
@@ -40,6 +40,22 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer, time
   const frozen = locked || (submitted && submittedFrozen)
   // Changing a submitted sheet makes it a draft again, so the judge submits it again.
   const edit = (change: { sheet?: PartialSheet; note?: string }) => onChange(submitted ? { ...change, status: 'draft' } : change)
+  // A note still being typed when the sheet closes (the operator put the next team on stage)
+  // gets no blur event: save it as the sheet closes.
+  const typed = useRef<string | null>(null)
+  const latest = useRef({ edit, note: record?.note ?? '', submitted, frozen })
+  latest.current = { edit, note: record?.note ?? '', submitted, frozen }
+  useEffect(() => () => {
+    const { edit, note, submitted, frozen } = latest.current
+    // A submitted sheet is not turned back into a draft just because it closed.
+    if (typed.current !== null && typed.current !== note && !submitted && !frozen) edit({ note: typed.current })
+  }, [])
+  // iPad Safari keeps focus in the note when Submit is tapped, so the note rides on the submit.
+  const submit = () => {
+    const note = typed.current
+    typed.current = null
+    onChange({ status: 'submitted', ...(note !== null && note !== (record?.note ?? '') ? { note } : {}) })
+  }
 
   return (
     <div className="screen">
@@ -73,7 +89,11 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer, time
           defaultValue={record?.note ?? ''}
           disabled={frozen}
           maxLength={200}
-          onBlur={(e) => e.target.value !== (record?.note ?? '') && edit({ note: e.target.value })}
+          onChange={(e) => { typed.current = e.target.value }}
+          onBlur={(e) => {
+            typed.current = null
+            if (e.target.value !== (record?.note ?? '')) edit({ note: e.target.value })
+          }}
         />
       </label>
 
@@ -90,7 +110,7 @@ export function ScoreForm({ team, record, locked, onChange, onBack, footer, time
               : '✓ Submitted. To change it, tap a new level, then press Submit again.'}
           </p>
         ) : (
-          <button className="primary" disabled={!complete || locked} onClick={() => onChange({ status: 'submitted' })}>
+          <button className="primary" disabled={!complete || locked} onClick={submit}>
             {complete ? 'Submit score' : `Score all ${CRITERIA.length} criteria (${CRITERIA.filter((k) => sheet[k] !== undefined).length}/${CRITERIA.length})`}
           </button>
         ))}

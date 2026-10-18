@@ -9,6 +9,7 @@ import { TiePick } from './TiePick'
 import { getStore, useScores } from './useScores'
 
 const EVERY_MS = 3000
+const NO_STORAGE = 'This browser cannot save scores on the tablet (private browsing or blocked website data). Use another browser, or score on the paper sheet and tell the operator.'
 const ABSENT_NOTE = 'The operator marked you absent, so your scores do not count. Ask the operator if this is wrong.'
 
 /**
@@ -17,7 +18,8 @@ const ABSENT_NOTE = 'The operator marked you absent, so your scores do not count
  * follows theirs. Saves land on the tablet first and sync in the background.
  */
 export function JudgeApp({ api, session, onLogout }: { api: Api; session: Session; onLogout: () => void }) {
-  const { records, save, refresh } = useScores()
+  const { records, loaded, save, refresh } = useScores()
+  const [noStorage, setNoStorage] = useState(false)
   const [team, setTeam] = useState<Team | null>(null)
   const [tie, setTie] = useState(false)
   /** Team put on stage while the judge still had the previous team's sheet unsubmitted. */
@@ -26,13 +28,16 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
   const [epoch, setEpoch] = useState(0)
   const running = useRef(false)
   const lastCurrent = useRef<string | null | undefined>(undefined)
+  const openTeam = useRef<string | null>(null)
   const judge = sync?.judge ?? session.judge!
 
   const round = useCallback(async () => {
     if (running.current) return
     running.current = true
     try {
-      const r = await syncJudge(api, await getStore(), judge.id)
+      const store = await getStore().catch(() => null)
+      if (!store) return setNoStorage(true)
+      const r = await syncJudge(api, store, judge.id)
       if (r.error === 'unauthorized') return onLogout()
       setSync((prev) => (r.online ? r : { ...r, runOrder: prev?.runOrder, clockOffset: prev?.clockOffset, ties: prev?.ties }))
       if (r.reset) {
@@ -41,7 +46,9 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
       }
       if (r.replaced.length || r.reset) {
         await refresh()
-        setEpoch((e) => e + 1)
+        // Remount the open sheet only when its own record changed, so a correction to
+        // another team does not wipe a note the judge is still typing.
+        if (r.reset || (openTeam.current && r.replaced.includes(openTeam.current))) setEpoch((e) => e + 1)
       }
     } finally {
       running.current = false
@@ -54,14 +61,23 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
     return () => clearInterval(t)
   }, [round])
 
+  openTeam.current = team?.id ?? null
   const runOrder = sync?.runOrder ?? DEFAULT_RUN_ORDER
   const submittedHere = (teamId: string) =>
     records.some((r) => r.teamId === teamId && r.judgeId === judge.id && r.status === 'submitted')
-  // A new team on stage opens its sheet, whatever the judge was looking at, except that
-  // the team that just pitched comes first while this judge has not submitted it, even if
-  // the judge had wandered off to another team's sheet.
+  const closedTeam = (id: string) => {
+    const t = TEAMS.find((x) => x.id === id)
+    return !!t && !!sync?.closedGroups.includes(categoryOf(t.category).group)
+  }
+  /** A sheet this judge still owes: not submitted, and its category still open. */
+  const owed = (id: string | null | undefined): id is string => !!id && !submittedHere(id) && !closedTeam(id)
+  // A new team on stage opens its sheet, whatever the judge was looking at, except that a
+  // sheet the judge still owes comes first: the team that just pitched, or the earlier one
+  // the tablet is already holding them on. After a reload the tablet remembers nothing, so
+  // it takes the earliest team before the one on stage with a draft started here.
+  // Going back (the operator's Previous) leaves an unsubmitted sheet open.
   useEffect(() => {
-    if (!sync?.runOrder) return
+    if (!sync?.runOrder || !loaded) return
     const current = sync.runOrder.current
     if (current === lastCurrent.current) return
     const previous = lastCurrent.current
@@ -69,16 +85,27 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
     if (!current) return
     setTie(false)
     const order = sync.runOrder.order
-    const forward = !!previous && order.indexOf(current) > order.indexOf(previous)
-    const pending = forward && !submittedHere(previous) ? previous : waitingNext && team && !submittedHere(team.id) ? team.id : null
-    if (pending && pending !== current && !sync.absent) {
-      setTeam(TEAMS.find((t) => t.id === pending) ?? null)
-      setWaitingNext(current)
-      return
+    const at = order.indexOf(current)
+    const open = team?.id
+    if (previous !== undefined && previous !== null && order.indexOf(previous) > at) {
+      if (owed(open) || submittedHere(current)) {
+        setWaitingNext(null)
+        return
+      }
+    } else if (!sync.absent) {
+      const draftBefore = previous === undefined
+        ? order.slice(0, Math.max(at, 0)).find((id) => owed(id) && records.some((r) => r.teamId === id && r.judgeId === judge.id))
+        : undefined
+      const pending = waitingNext && owed(open) ? open : previous && owed(previous) ? previous : draftBefore
+      if (pending && pending !== current) {
+        setTeam(TEAMS.find((t) => t.id === pending) ?? null)
+        setWaitingNext(current)
+        return
+      }
     }
     setWaitingNext(null)
     setTeam(TEAMS.find((t) => t.id === current) ?? null)
-  }, [sync?.runOrder]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sync?.runOrder, loaded]) // eslint-disable-line react-hooks/exhaustive-deps
   // Once that sheet is submitted, open the team on stage now.
   useEffect(() => {
     if (!waitingNext || !team || !submittedHere(team.id)) return
@@ -95,6 +122,8 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
     : sync.rejected ? <span className="sync wait">{sync.rejected} not accepted · tell the operator</span>
     : sync.waiting ? <span className="sync wait">{sync.waiting} waiting</span>
     : <span className="sync ok">Synced</span>
+
+  if (noStorage) return <div className="screen"><p className="banner" role="alert">{NO_STORAGE}</p></div>
 
   if (tie && myTie) {
     return (

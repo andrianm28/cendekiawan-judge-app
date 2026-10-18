@@ -38,13 +38,17 @@ self.addEventListener('fetch', (event) => {
 /** Network first (fresh deploys), the cached app when the network fails or hangs. */
 async function page(req) {
   const cache = await caches.open(CACHE)
-  try {
-    const res = await Promise.race([
-      fetch(req),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), PAGE_TIMEOUT_MS)),
-    ])
+  // A slow answer still refreshes the cache, so the next open gets the new build.
+  const fresh = fetch(req).then(async (res) => {
     if (res.ok) await cache.put('/', res.clone())
     return res
+  })
+  fresh.catch(() => {})
+  try {
+    return await Promise.race([
+      fresh,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), PAGE_TIMEOUT_MS)),
+    ])
   } catch {
     return (await cache.match('/')) ?? Response.error()
   }

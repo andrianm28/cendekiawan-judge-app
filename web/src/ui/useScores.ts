@@ -7,7 +7,12 @@ export const getStore = () => (storePromise ??= ScoreStore.open())
 /** All score records on this device, refreshed after every save. */
 export function useScores() {
   const [records, setRecords] = useState<ScoreRecord[]>([])
-  const refresh = useCallback(async () => setRecords(await (await getStore()).listAll()), [])
+  /** The tablet's records have been read at least once. */
+  const [loaded, setLoaded] = useState(false)
+  const refresh = useCallback(async () => {
+    setRecords(await (await getStore()).listAll())
+    setLoaded(true)
+  }, [])
   useEffect(() => {
     void refresh()
   }, [refresh])
@@ -19,5 +24,5 @@ export function useScores() {
     },
     [refresh],
   )
-  return { records, save, refresh }
+  return { records, loaded, save, refresh }
 }

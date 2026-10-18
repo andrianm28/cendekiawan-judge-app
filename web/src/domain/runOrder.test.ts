@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { canPutOnStage, canStepBack, DEFAULT_RUN_ORDER, elapsedSeconds, moveInOrder, moveTo, normalizeRunOrder, sameCategoryLayout, showFinished, stepCurrent, timerClock } from './runOrder'
+import { canPutOnStage, canStepBack, DEFAULT_RUN_ORDER, elapsedSeconds, leftBehind, moveInOrder, moveTo, normalizeRunOrder, sameCategoryLayout, showFinished, stepCurrent, timerClock } from './runOrder'
+import { TEAMS } from './teams'
 
 describe('running order', () => {
   it('defaults to showcase order and repairs a partial or unknown list', () => {
@@ -57,5 +58,19 @@ describe('running order', () => {
     r = normalizeRunOrder({ ...r, current: r.order[19] })
     expect(showFinished(r)).toBe(false)
     expect(showFinished(normalizeRunOrder({ ...r, current: null }))).toBe(true)
+  })
+
+  it('names the teams a jump or a category change would leave without a pitch', () => {
+    const at = (current: string, reached = 0) => normalizeRunOrder({ ...DEFAULT_RUN_ORDER, current, reached })
+    const seen = new Set(['t01', 't02'])
+    // A mis-tap on team 20 while education runs skips t03, t04 and three whole categories.
+    expect(leftBehind(at('t02'), 't20', seen)).toEqual(TEAMS.filter((t) => t.order >= 3 && t.order <= 16).map((t) => t.id))
+    // Moving on inside the category, or to the next one with everyone done, leaves nobody.
+    expect(leftBehind(at('t02'), 't04', seen)).toEqual([])
+    expect(leftBehind(at('t04'), 't05', new Set(['t01', 't02', 't03']))).toEqual([])
+    // A team dragged above the one on stage was never called up.
+    expect(leftBehind(at('t04'), 't05', seen)).toEqual(['t03'])
+    // Finishing the show with the last category's teams all done.
+    expect(leftBehind(at('t20', 4), null, new Set(['t17', 't18', 't19']))).toEqual([])
   })
 })

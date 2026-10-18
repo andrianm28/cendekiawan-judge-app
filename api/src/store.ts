@@ -14,6 +14,8 @@ export interface StoredScore {
   status: 'draft' | 'submitted'
   version: number
   updatedAt: string
+  /** Event data the sheet was written under (see Store.getEpoch); absent on sheets saved before 18 Oct. */
+  epoch?: string | null
 }
 
 export interface JudgeAccount {
