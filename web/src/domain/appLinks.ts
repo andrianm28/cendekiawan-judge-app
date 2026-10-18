@@ -3,6 +3,7 @@
 // Seeded from the decks and submissions (17 Oct 2026); teams send the rest in the finalists' WhatsApp group.
 
 export const APP_LINKS: Partial<Record<string, string>> = {
+  t01: 'https://d2g644ovl6nvjj.cloudfront.net/welcome.html', // Virtual Science Lab Assistant, WhatsApp group
   t05: 'https://d1bgbvuupgcwqf.cloudfront.net/', // MediGuard, WhatsApp group
   t06: 'https://d3g8knvf98dqba.cloudfront.net/index.html', // Diabetes Control AI Expert, WhatsApp group
   t09: 'https://d2u4k6rtsz1kn9.cloudfront.net/', // EcoLens, submission brief + WhatsApp group
