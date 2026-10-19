@@ -4,6 +4,7 @@
 
 export const APP_LINKS: Partial<Record<string, string>> = {
   t01: 'https://d2g644ovl6nvjj.cloudfront.net/welcome.html', // Virtual Science Lab Assistant, WhatsApp group
+  t03: 'https://main.d26f4vdein3639.amplifyapp.com/', // LangHub, WhatsApp group
   t04: 'http://study-snap-frontendbucket-j3ljaifalteq.s3-website.ap-southeast-5.amazonaws.com/', // StudySnap, WhatsApp group
   t05: 'https://d1bgbvuupgcwqf.cloudfront.net/', // MediGuard, WhatsApp group
   t06: 'https://d3g8knvf98dqba.cloudfront.net/index.html', // Diabetes Control AI Expert, WhatsApp group
