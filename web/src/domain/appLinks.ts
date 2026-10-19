@@ -6,6 +6,7 @@ export const APP_LINKS: Partial<Record<string, string>> = {
   t01: 'https://d2g644ovl6nvjj.cloudfront.net/welcome.html', // Virtual Science Lab Assistant, WhatsApp group
   t05: 'https://d1bgbvuupgcwqf.cloudfront.net/', // MediGuard, WhatsApp group
   t06: 'https://d3g8knvf98dqba.cloudfront.net/index.html', // Diabetes Control AI Expert, WhatsApp group
+  t07: 'https://d250i0gcy6fvmo.cloudfront.net/', // SmartMed Cycle, WhatsApp group
   t08: 'http://ubatjelas-frontend-921274142135.s3-website-ap-southeast-1.amazonaws.com/', // UbatJelas, their QR (qrco.de/bh404p) redirects here
   t09: 'https://d2u4k6rtsz1kn9.cloudfront.net/', // EcoLens, submission brief + WhatsApp group
   t10: 'http://agroshield-ai-frontend-162663625909.s3-website.ap-southeast-5.amazonaws.com', // AgroShield AI, Website Link.docx
