@@ -12,7 +12,7 @@ export const APP_LINKS: Partial<Record<string, string>> = {
   t07: 'https://d250i0gcy6fvmo.cloudfront.net/', // SmartMed Cycle, WhatsApp group
   t08: 'https://d1utnzv9i3qham.cloudfront.net/', // UbatJelas, WhatsApp group (replaces the S3 link that went down)
   t09: 'https://d2u4k6rtsz1kn9.cloudfront.net/', // EcoLens, submission brief + WhatsApp group
-  t10: 'http://agroshield-ai-frontend-162663625909.s3-website.ap-southeast-5.amazonaws.com', // AgroShield AI, Website Link.docx
+  t10: 'https://d1br6fvdh14z6c.cloudfront.net/', // AgroShield AI, WhatsApp group (https link, replaces the S3 http one)
   t11: 'https://d3f173je1qvblr.cloudfront.net/', // Smart Waste, QR in the deck + WhatsApp group
   t12: 'https://d3q99mmcfta2ll.cloudfront.net/', // See You CO2, WhatsApp group (https link, replaces the S3 http one)
   t13: 'https://d2pokujznmgw1q.cloudfront.net/', // FinBot, WhatsApp group
