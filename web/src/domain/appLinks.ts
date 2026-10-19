@@ -14,7 +14,7 @@ export const APP_LINKS: Partial<Record<string, string>> = {
   t09: 'https://d2u4k6rtsz1kn9.cloudfront.net/', // EcoLens, submission brief + WhatsApp group
   t10: 'http://agroshield-ai-frontend-162663625909.s3-website.ap-southeast-5.amazonaws.com', // AgroShield AI, Website Link.docx
   t11: 'https://d3f173je1qvblr.cloudfront.net/', // Smart Waste, QR in the deck + WhatsApp group
-  t12: 'http://see-you-co2-frontend-prod.s3-website-ap-southeast-1.amazonaws.com/', // See You CO2, WhatsApp group
+  t12: 'https://d3q99mmcfta2ll.cloudfront.net/', // See You CO2, WhatsApp group (https link, replaces the S3 http one)
   t13: 'https://d2pokujznmgw1q.cloudfront.net/', // FinBot, WhatsApp group
   t14: 'https://deal-guard-ochre.vercel.app/', // SME DealGuard MY, WhatsApp group
   t16: 'https://futuresight.my', // Malaysia Business Launchpad, closing slide
