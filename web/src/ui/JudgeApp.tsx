@@ -3,6 +3,7 @@ import { DEFAULT_RUN_ORDER, showFinished, timerClock } from '../domain/runOrder'
 import { categoryOf, TEAMS, type Team } from '../domain/teams'
 import type { Api, Session } from '../sync/api'
 import { syncJudge, type SyncResult } from '../sync/sync'
+import { JudgeBrief } from './JudgeBrief'
 import { ScoreForm } from './ScoreForm'
 import { TeamList } from './TeamList'
 import { TiePick } from './TiePick'
@@ -176,6 +177,7 @@ export function JudgeApp({ api, session, onLogout }: { api: Api; session: Sessio
                 : `Tie in ${categoryOf(myTie.category).name}: tap to choose the winner.`}
             </button>
           )}
+          <JudgeBrief />
           <p className="muted small waiting">
             {onStage ? `On stage now: ${onStage.appName}. Its sheet opens automatically.`
               : showFinished(runOrder) ? 'All teams have presented. Wait for the operator to open the judges\' deliberation.'
