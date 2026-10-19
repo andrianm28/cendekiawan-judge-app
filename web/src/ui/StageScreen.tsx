@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
+import { APP_LINKS, shortUrl } from '../domain/appLinks'
 import { DEFAULT_RUN_ORDER, normalizeRunOrder, showFinished, timerClock } from '../domain/runOrder'
 import { categoryOf, TEAMS, type Team } from '../domain/teams'
 import type { Api, ServerState } from '../sync/api'
+import { QrCode } from './QrCode'
 import { Timer } from './Timer'
 
 const EVERY_MS = 1000
@@ -17,7 +19,8 @@ const UNIVERSITY: Record<Team['university'], string> = {
  * Audience screen for the venue LED, public at /?screen=stage (no login), also opened
  * from the operator board in its own window:
  * the team on stage, its category, the pitch timer and who is up next. It follows the
- * operator's controls and never shows scores or the leaderboard.
+ * operator's controls and never shows scores or the leaderboard. When the team on stage has
+ * a live app link, a QR code to it sits beside the timer so the audience can try the app.
  */
 export function StageScreen({ api }: { api: Api }) {
   const [state, setState] = useState<Pick<ServerState, 'runOrder' | 'serverTime'> | null>(null)
@@ -50,6 +53,7 @@ export function StageScreen({ api }: { api: Api }) {
   const next = finished ? undefined : TEAMS.find((t) => t.id === order[team ? position + 1 : 0])
   const offset = state ? Date.parse(state.serverTime) - asked : 0
   const cat = team ? categoryOf(team.category) : undefined
+  const appLink = team ? APP_LINKS[team.id] : undefined
 
   const fullscreen = () => {
     if (document.fullscreenElement) void document.exitFullscreen()
@@ -69,7 +73,7 @@ export function StageScreen({ api }: { api: Api }) {
       </header>
 
       {team && cat ? (
-        <main className="stage-main">
+        <main className={appLink ? 'stage-main has-qr' : 'stage-main'}>
           <span className="stage-eyebrow">Now presenting · Team {position + 1} of {order.length}</span>
           <span className="stage-category">{cat.name}</span>
           <h1 className="stage-app">{team.appName}</h1>
@@ -81,6 +85,13 @@ export function StageScreen({ api }: { api: Api }) {
             <Timer clock={timerClock(run, offset)} />
             <span className="stage-clock-label">{!run.startedAt ? 'Pitch starts soon' : run.pausedAt ? 'Paused' : '5-minute pitch'}</span>
           </div>
+          {appLink && (
+            <aside className="stage-try">
+              <QrCode value={appLink} className="stage-qr" />
+              <span className="stage-try-label">Scan to try the app</span>
+              <span className="stage-try-url">{shortUrl(appLink)}</span>
+            </aside>
+          )}
         </main>
       ) : (
         <main className="stage-main idle">
