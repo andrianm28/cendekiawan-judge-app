@@ -17,6 +17,7 @@ export const APP_LINKS: Partial<Record<string, string>> = {
   t14: 'https://deal-guard-ochre.vercel.app/', // SME DealGuard MY, WhatsApp group
   t16: 'https://futuresight.my', // Malaysia Business Launchpad, closing slide
   t18: 'https://jpj-traffic-advisor.vercel.app', // City Mind MY, WhatsApp group
+  t19: 'https://opsjejak.dx7fxqronvpae.amplifyapp.com/', // OpsJejak, WhatsApp group
   t20: 'https://app.dewanai.my', // Dewan AI, WhatsApp group (landing page: dewanai.my)
 }
 
