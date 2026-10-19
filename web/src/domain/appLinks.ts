@@ -17,6 +17,7 @@ export const APP_LINKS: Partial<Record<string, string>> = {
   t12: 'https://d3q99mmcfta2ll.cloudfront.net/', // See You CO2, WhatsApp group (https link, replaces the S3 http one)
   t13: 'https://d2pokujznmgw1q.cloudfront.net/', // FinBot, WhatsApp group
   t14: 'https://deal-guard-ochre.vercel.app/', // SME DealGuard MY, WhatsApp group
+  t15: 'https://df9kx3mn95m8a.cloudfront.net/', // SMEwise, sent by the organiser (page title matches)
   t16: 'https://futuresight.my', // Malaysia Business Launchpad, closing slide
   t18: 'https://jpj-traffic-advisor.vercel.app', // City Mind MY, WhatsApp group
   t19: 'https://opsjejak.dx7fxqronvpae.amplifyapp.com/', // OpsJejak, WhatsApp group
