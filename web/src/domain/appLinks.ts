@@ -6,9 +6,11 @@ export const APP_LINKS: Partial<Record<string, string>> = {
   t01: 'https://d2g644ovl6nvjj.cloudfront.net/welcome.html', // Virtual Science Lab Assistant, WhatsApp group
   t05: 'https://d1bgbvuupgcwqf.cloudfront.net/', // MediGuard, WhatsApp group
   t06: 'https://d3g8knvf98dqba.cloudfront.net/index.html', // Diabetes Control AI Expert, WhatsApp group
+  t08: 'http://ubatjelas-frontend-921274142135.s3-website-ap-southeast-1.amazonaws.com/', // UbatJelas, their QR (qrco.de/bh404p) redirects here
   t09: 'https://d2u4k6rtsz1kn9.cloudfront.net/', // EcoLens, submission brief + WhatsApp group
   t10: 'http://agroshield-ai-frontend-162663625909.s3-website.ap-southeast-5.amazonaws.com', // AgroShield AI, Website Link.docx
   t11: 'https://d3f173je1qvblr.cloudfront.net/', // Smart Waste, QR in the deck + WhatsApp group
+  t12: 'http://see-you-co2-frontend-prod.s3-website-ap-southeast-1.amazonaws.com/', // See You CO2, WhatsApp group
   t13: 'https://d2pokujznmgw1q.cloudfront.net/', // FinBot, WhatsApp group
   t14: 'https://deal-guard-ochre.vercel.app/', // SME DealGuard MY, WhatsApp group
   t16: 'https://futuresight.my', // Malaysia Business Launchpad, closing slide
