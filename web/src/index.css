@@ -354,3 +354,7 @@ span.timer { display: inline-flex; align-items: center; }
 .submit-status.ok { color: var(--green); }
 .submit-status.wait { color: #b35c00; }
 .actions .next-up { max-width: 688px; margin: 0 auto 8px; text-align: left; }
+.judge-brief { margin: 0 0 10px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+.judge-brief summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; font-weight: 600; }
+.judge-brief video { display: block; width: 100%; max-width: 640px; margin: 8px 0; border-radius: 6px; background: #000; }
+.judge-brief .link-btn { display: inline-block; padding: 8px 0; }
