@@ -14,7 +14,7 @@ const WRONG_PINS = 'wrong-pin-count'
 
 export function dynamoStore(table: string, client = DynamoDBDocumentClient.from(new DynamoDBClient({}))): Store {
   const get = async <T>(pk: string, sk: string) =>
-    ((await client.send(new GetCommand({ TableName: table, Key: { pk, sk } }))).Item?.value as T | undefined)
+    ((await client.send(new GetCommand({ TableName: table, Key: { pk, sk }, ConsistentRead: true }))).Item?.value as T | undefined)
   const put = (pk: string, sk: string, value: unknown) =>
     client.send(new PutCommand({ TableName: table, Item: { pk, sk, value } })).then(() => undefined)
   const del = (pk: string, sk: string) => client.send(new DeleteCommand({ TableName: table, Key: { pk, sk } })).then(() => undefined)
@@ -27,6 +27,7 @@ export function dynamoStore(table: string, client = DynamoDBDocumentClient.from(
         KeyConditionExpression: 'pk = :pk',
         ExpressionAttributeValues: { ':pk': pk },
         ProjectionExpression: 'sk',
+        ConsistentRead: true,
         ExclusiveStartKey: start,
       }))
       out.push(...(r.Items ?? []).map((i) => i.sk as string))
@@ -43,6 +44,7 @@ export function dynamoStore(table: string, client = DynamoDBDocumentClient.from(
         KeyConditionExpression: 'pk = :pk',
         ExpressionAttributeValues: { ':pk': pk },
         ExclusiveStartKey: start,
+        ConsistentRead: true,
       }))
       items.push(...(r.Items ?? []).map((i) => i.value as T))
       start = r.LastEvaluatedKey
@@ -77,13 +79,15 @@ export function dynamoStore(table: string, client = DynamoDBDocumentClient.from(
     listAudit: () => query<AuditEntry>('AUDIT'),
     getEpoch: async () => (await get<string>('META', 'epoch')) ?? null,
     resetEventData: async (epoch) => {
+      // The new epoch goes first, so a tablet upload during the deletes is refused (or, if it
+      // passed the check just before, is stamped with the old epoch and ignored).
+      await put('META', 'epoch', epoch)
       // A few hundred small items at most; plain deletes keep this simple.
       for (const pk of ['SCORE', 'TIE', 'GROUP', 'ABSENT', 'PRESENCE', 'AUDIT']) {
         for (const sk of await keys(pk)) await del(pk, sk)
       }
       await del('META', 'deliberation')
       await del('META', 'runorder')
-      await put('META', 'epoch', epoch)
     },
   }
 }

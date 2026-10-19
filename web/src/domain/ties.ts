@@ -7,6 +7,8 @@ import { CATEGORIES, TEAMS, type CategoryId } from './teams'
 
 export interface TieBreak {
   teamId: string
+  /** The teams tied when the pick was made; the pick stops applying if the tie changes. */
+  tied?: string[]
   /** Judge id, or 'admin' when the operator recorded it. */
   by: string
   at: string
@@ -55,7 +57,7 @@ export function categoryTies(records: SheetInput[], judges: number, picks: TieBr
   const out: TieSummary[] = []
   for (const c of CATEGORIES) {
     if (!categoryComplete(c.id, TEAMS, sheets, judges)) continue
-    const s = rankCategory(c.id, TEAMS, sheets, picks[c.id]?.teamId)
+    const s = rankCategory(c.id, TEAMS, sheets, picks[c.id])
     if (s.tiedTop.length < 2) continue
     out.push({
       category: c.id,

@@ -104,8 +104,9 @@ export class Api {
   state = () => this.call<ServerState>('GET', '/state')
   /** Public: what the stage screen shows, no login needed. */
   stage = () => this.call<Pick<ServerState, 'runOrder' | 'serverTime'>>('GET', '/stage')
-  saveScore = (r: Pick<ScoreRecord, 'teamId' | 'sheet' | 'note' | 'status' | 'version'>) =>
-    this.call<ServerScore>('PUT', `/scores/${r.teamId}`, { sheet: r.sheet, note: r.note, status: r.status, version: r.version })
+  /** `epoch`: the event data this sheet belongs to; the server refuses it after a Reset. */
+  saveScore = (r: Pick<ScoreRecord, 'teamId' | 'sheet' | 'note' | 'status' | 'version'>, epoch?: string | null) =>
+    this.call<ServerScore>('PUT', `/scores/${r.teamId}`, { sheet: r.sheet, note: r.note, status: r.status, version: r.version, ...(epoch === undefined ? {} : { epoch }) })
   correctScore = (judgeId: string, teamId: string, r: Pick<ScoreRecord, 'sheet' | 'note' | 'status'>, reason: string) =>
     this.call<ServerScore>('PUT', `/admin/scores/${judgeId}/${teamId}`, { ...r, reason })
   setGroupClosed = (group: number, closed: boolean) =>

@@ -69,7 +69,7 @@ export function buildLeaderboard(
     if (r.status !== 'submitted') provisional.add(r.teamId)
   }
 
-  const standings = CATEGORIES.map((c) => rankCategory(c.id, TEAMS, sheetsByTeam, picks[c.id]?.teamId))
+  const standings = CATEGORIES.map((c) => rankCategory(c.id, TEAMS, sheetsByTeam, picks[c.id]))
   const podium = proposeRanks(standings)
   const awardOf = new Map(podium.map((p) => [p.winner.team.id, p.award]))
   const categoryRankOf = new Map<string, number>()
